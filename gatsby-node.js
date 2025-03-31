@@ -54,7 +54,8 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
         )
     `
       )
-      .order("question_order", { ascending: true }); // Order globally first
+      .order("question_order", { ascending: true })
+      .range(0, 50000); // Order globally first
 
   if (examQuestionsError) {
     reporter.panicOnBuild(
@@ -63,6 +64,13 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     );
     return;
   }
+
+  // Log the actual number fetched now
+  reporter.info(
+    `Fetched ${
+      examQuestionsData ? examQuestionsData.length : 0
+    } exam-question relationships.`
+  );
 
   // --- 3. Process and Group Data ---
   const examsWithQuestions = {};
@@ -89,6 +97,11 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   // Ensure questions within each exam are sorted by question_order (redundant if global sort works, but safe)
   Object.values(examsWithQuestions).forEach((exam) => {
     exam.questions.sort((a, b) => a.question_order - b.question_order);
+    const questions = exam.questions;
+    const totalQuestions = questions.length;
+    reporter.info(
+      `Processing Exam: ${exam.exam_name} (ID: ${exam.exam_id}) with ${totalQuestions} questions.`
+    ); // Verify totalQuestions
   });
 
   reporter.info(`Fetched ${examsData.length} exams.`);
@@ -99,13 +112,24 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   // --- 4. Create Exam List Page ---
   // Although you might create src/pages/exams.js directly, passing the data
   // here ensures it's available at build time without extra client-side fetching.
-  createPage({
-    path: `/exams/`,
-    component: path.resolve("./src/templates/exam-list-page.js"), // We'll create this template
-    context: {
-      allExams: examsData, // Pass the list of exams to the page
-    },
-  });
+
+  try {
+    createPage({
+      path: `/exams/`,
+      component: path.resolve("./src/templates/exam-list-page.js"), // We'll create this template
+      context: {
+        allExams: examsData, // Pass the list of exams to the page
+      },
+    });
+    reporter.info(` --> SUCCESS creating page for ${examsData.exam_id}`); // Add success log
+  } catch (pageError) {
+    reporter.error(
+      ` --> FAILED creating page for ${examsData.exam_id}`,
+      pageError
+    );
+    // Decide if you want the build to stop: throw pageError;
+  }
+
   reporter.info(`Created Exam List page at /exams/`);
 
   // --- 5. Create Individual Question Pages ---
