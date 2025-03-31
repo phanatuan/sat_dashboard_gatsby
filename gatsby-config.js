@@ -1,9 +1,11 @@
-/**
- * @type {import('gatsby').GatsbyConfig}
- */
+// gatsby-config.js
 module.exports = {
-  siteMetadata: {
+  /* siteMetadata: {
+    title: `My Exam App`, // Example site metadata
     siteUrl: `https://www.yourdomain.tld`,
-  },
-  plugins: [],
-}
+  }, */
+  plugins: [
+    `gatsby-plugin-postcss`, // Add this line
+    // Add other plugins here if needed later (e.g., gatsby-plugin-react-helmet)
+  ],
+};
