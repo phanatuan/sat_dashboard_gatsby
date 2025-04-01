@@ -10,30 +10,6 @@ import { useExamTimer } from "../context/ExamTimerContext"; // Import the timer 
 // --- Helper function for localStorage ---
 const getExamAnswersKey = (examId) => `examAnswers_${examId}`;
 
-// Timer component (keep as is)
-const Timer = () => {
-  const [time, setTime] = useState(0);
-  useEffect(() => {
-    const intervalId = setInterval(
-      () => setTime((prevTime) => prevTime + 1),
-      1000
-    );
-    return () => clearInterval(intervalId);
-  }, []);
-  const hours = Math.floor(time / 3600)
-    .toString()
-    .padStart(2, "0");
-  const minutes = Math.floor((time % 3600) / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (time % 60).toString().padStart(2, "0");
-  return (
-    <span>
-      {hours}:{minutes}:{seconds}
-    </span>
-  );
-};
-
 const QuestionPage = ({ pageContext }) => {
   const {
     exam_id,
@@ -50,12 +26,15 @@ const QuestionPage = ({ pageContext }) => {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const { formattedTime, resetTimer } = useExamTimer(); // Get timer state and reset function
 
+  const { formattedTime, resetTimer } = useExamTimer(); // Get timer state and reset functions
   const [selectedAnswer, setSelectedAnswer] = useState(null); // Initial state is null
   const [showExplanation, setShowExplanation] = useState(false);
   const [feedback, setFeedback] = useState({ correct: null, checked: false });
   const [isMarked, setIsMarked] = useState(false);
+  const [checkButtonText, setCheckButtonText] = useState("Check Answer");
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
 
   // --- Authorization Check Effect (Keep as is) ---
   useEffect(() => {
@@ -124,9 +103,8 @@ const QuestionPage = ({ pageContext }) => {
       // Optionally clear corrupted data: localStorage.removeItem(storageKey);
       setSelectedAnswer(null); // Reset on error
     }
-
-    // Reset feedback and explanation visibility when question changes
-    setFeedback({ correct: null, checked: false });
+    setIncorrectAnswers(new Set());
+    // Reset explanation visibility when question changes
     setShowExplanation(false);
     // We could load/save the 'isMarked' state similarly if desired
   }, [exam_id, question_order, isAuthorized, question_data]); // Rerun when question changes or auth resolves
@@ -156,18 +134,33 @@ const QuestionPage = ({ pageContext }) => {
 
   // --- Handlers ---
   const handleSelectAnswer = (answerChoice) => {
-    if (!feedback.checked) {
-      setSelectedAnswer(answerChoice);
-      setFeedback({ correct: null, checked: false }); // Reset feedback on new selection
-      saveAnswerToLocalStorage(answerChoice); // <<< SAVE HERE
+    setSelectedAnswer(answerChoice);
+    // Reset feedback on new selection, but keep 'checked' as true
+
+    if (incorrectAnswers.has(answerChoice)) {
+      const newIncorrectAnswers = new Set(incorrectAnswers);
+      newIncorrectAnswers.delete(answerChoice);
+      setIncorrectAnswers(newIncorrectAnswers);
     }
+
+    setFeedback({ correct: null, checked: false });
+    setIsCorrect(false);
+    saveAnswerToLocalStorage(answerChoice); // <<< SAVE HERE
+
     console.log("Selected:", answerChoice);
   };
 
   const handleCheck = () => {
     if (selectedAnswer) {
-      const isCorrect = selectedAnswer === question_data.correct_answer;
-      setFeedback({ correct: isCorrect, checked: true });
+      const correct = selectedAnswer === question_data.correct_answer;
+      setFeedback({ correct: correct, checked: true });
+      setIsCorrect(correct);
+      if (correct) {
+        setCheckButtonText("Correct!");
+      } else {
+        setCheckButtonText("Check Again");
+        setIncorrectAnswers(new Set(incorrectAnswers).add(selectedAnswer));
+      }
     }
   };
 
@@ -240,13 +233,13 @@ const QuestionPage = ({ pageContext }) => {
       {/* Main Content (as before) */}
       <div className="flex flex-col md:flex-row gap-5">
         {/* Left Column (as before) */}
-        <div className="md:w-2/3 md:border-r md:border-gray-200 md:pr-5">
+        <div className="md:w-1/2 md:border-r md:border-gray-200 md:pr-5">
           <div
             dangerouslySetInnerHTML={{ __html: question_data.question_html }}
           />
         </div>
         {/* Right Column */}
-        <div className="md:w-1/3">
+        <div className="md:w-1/2">
           <button
             onClick={handleMarkForReview}
             className={clsx(
@@ -271,22 +264,18 @@ const QuestionPage = ({ pageContext }) => {
             // Determine button styling based on state and feedback
             const isCorrectAnswer = choice === question_data.correct_answer;
             const isSelected = selectedAnswer === choice;
+            const isIncorrect = incorrectAnswers.has(choice);
 
             let buttonClasses = [answerButtonBaseClasses]; // Start with base + flex classes
 
-            if (feedback.checked) {
-              // If feedback mode is active
-              if (isSelected && !feedback.correct) {
-                buttonClasses.push(
-                  "bg-red-200 border-red-500 text-red-900 font-semibold"
-                ); // Incorrect selected
-              } else if (isCorrectAnswer) {
-                buttonClasses.push(
-                  "bg-green-200 border-green-500 text-green-900 font-semibold"
-                ); // Correct (whether selected or not)
-              } else {
-                buttonClasses.push("border-gray-300 bg-white"); // Others - neutral
-              }
+            if (isIncorrect) {
+              buttonClasses.push(
+                "bg-red-200 border-red-500 text-red-900 font-semibold line-through"
+              ); // Incorrect selected + strikethrough
+            } else if (isCorrect && isSelected) {
+              buttonClasses.push(
+                "bg-green-200 border-green-500 text-green-900 font-semibold"
+              ); // Correct (whether selected or not)
             } else {
               // If not checked yet
               if (isSelected) {
@@ -301,7 +290,7 @@ const QuestionPage = ({ pageContext }) => {
                 key={choice}
                 onClick={() => handleSelectAnswer(choice)}
                 className={clsx(buttonClasses)} // Use clsx to combine classes
-                disabled={feedback.checked}
+                disabled={isCorrect}
               >
                 {/* Flexbox applied via answerButtonBaseClasses handles inline */}
                 <strong className="mr-2 flex-shrink-0">{choice}.</strong>
@@ -353,10 +342,17 @@ const QuestionPage = ({ pageContext }) => {
         {allow_practice_mode && (
           <button
             onClick={handleCheck}
-            disabled={!selectedAnswer || feedback.checked}
-            className={`${navButtonBaseClasses} bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed`}
+            className={clsx(
+              `${navButtonBaseClasses}  text-white `,
+              !selectedAnswer ? "bg-gray-400 cursor-not-allowed" : "",
+              isCorrect ? "bg-green-600 hover:bg-green-700" : "",
+              feedback.correct === false
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-blue-600 hover:bg-blue-700"
+            )}
+            disabled={isCorrect || !selectedAnswer}
           >
-            Check Answer
+            {checkButtonText}
           </button>
         )}
         {/* Spacer if check button isn't shown */}
