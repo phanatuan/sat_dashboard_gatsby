@@ -85,7 +85,7 @@ const ExamListPage = ({ pageContext }) => {
 
   return (
     // Assuming Layout component handles basic padding (like px-4)
-    <Layout maxWidth="max-w-3xl">
+    <Layout>
       {/* Adjusted heading size slightly for smaller screens */}
       <h1 className="text-2xl sm:text-3xl font-bold mb-6">Available Exams</h1>
 

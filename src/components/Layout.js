@@ -3,7 +3,7 @@ import React from "react";
 import { Link, navigate } from "gatsby";
 import { useAuth } from "../context/AuthContext";
 
-const Layout = ({ children, maxWidth = "max-w-6xl" }) => {
+const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
   const { user, signOut, role, isAdmin } = useAuth();
 
   const handleLogout = async () => {

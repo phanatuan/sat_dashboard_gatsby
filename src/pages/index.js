@@ -61,9 +61,7 @@ const HomePage = () => {
   // const { user } = useAuth(); // Optional: Get user status
 
   return (
-    // Using Layout for consistent header/footer and overall structure
-    // You might want a slightly wider max-width for the homepage content sections
-    <Layout maxWidth="max-w-5xl">
+    <Layout>
       {" "}
       {/* Adjusted maxWidth */}
       {/* --- Hero Section --- */}
@@ -90,7 +88,7 @@ const HomePage = () => {
       </section>
       {/* --- Features Section --- */}
       <section className="py-16 md:py-20">
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="mx-auto px-4">
           <h2 className="text-3xl font-semibold text-center text-gray-800 mb-12">
             Why Practice With Us?
           </h2>
