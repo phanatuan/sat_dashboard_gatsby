@@ -1,27 +1,24 @@
 // src/templates/exam-list-page.js
-import React, { useEffect, useState } from "react"; // Import useEffect
-import { Link, navigate } from "gatsby"; // Import navigate
+import React, { useEffect, useState } from "react";
+import { Link, navigate } from "gatsby";
 import Layout from "../components/Layout";
-import { useAuth } from "../context/AuthContext"; // Import useAuth
+import { useAuth } from "../context/AuthContext";
 
 const ExamListPage = ({ pageContext }) => {
   const { allExams } = pageContext;
   const { user, loading } = useAuth();
 
-  // State variables for filtering, searching, and pagination
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSection, setSelectedSection] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
-  const [examsPerPage, setExamsPerPage] = useState(10); // Default: 10 exams per page
+  const [examsPerPage, setExamsPerPage] = useState(10);
 
   useEffect(() => {
-    // If the context is done loading and there's no user, redirect to login
     if (!loading && !user) {
       navigate("/login/");
     }
-  }, [user, loading]); // Re-run effect if user or loading state changes
+  }, [user, loading]);
 
-  // Optional: Show loading state while auth check is happening
   if (loading) {
     return (
       <Layout maxWidth="max-w-3xl">
@@ -31,12 +28,13 @@ const ExamListPage = ({ pageContext }) => {
   }
 
   if (!user) {
-    return null;
+    return null; // Or redirect logic handled by useEffect
   }
 
+  // --- Event Handlers ---
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
-    setCurrentPage(1); // Reset to first page when search term changes
+    setCurrentPage(1);
   };
 
   const handleClearSearch = () => {
@@ -46,14 +44,19 @@ const ExamListPage = ({ pageContext }) => {
 
   const handleSectionChange = (event) => {
     setSelectedSection(event.target.value);
-    setCurrentPage(1); // Reset to first page when section changes
+    setCurrentPage(1);
   };
 
   const handleExamsPerPageChange = (event) => {
     setExamsPerPage(parseInt(event.target.value, 10));
-    setCurrentPage(1); // Reset to first page when items per page change
+    setCurrentPage(1);
   };
 
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // --- Filtering and Pagination Logic ---
   const filteredExams = allExams
     ? allExams.filter((exam) => {
         const searchMatch =
@@ -65,18 +68,12 @@ const ExamListPage = ({ pageContext }) => {
       })
     : [];
 
-  // Pagination Logic
   const indexOfLastExam = currentPage * examsPerPage;
   const indexOfFirstExam = indexOfLastExam - examsPerPage;
   const currentExams = filteredExams.slice(indexOfFirstExam, indexOfLastExam);
-
   const totalPages = Math.ceil(filteredExams.length / examsPerPage);
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  // --- Render exam list only if user is logged in ---
+  // --- Render ---
   if (!allExams || allExams.length === 0) {
     return (
       <Layout maxWidth="max-w-3xl">
@@ -87,14 +84,20 @@ const ExamListPage = ({ pageContext }) => {
   }
 
   return (
+    // Assuming Layout component handles basic padding (like px-4)
     <Layout maxWidth="max-w-3xl">
-      <h1 className="text-3xl font-bold mb-6">Available Exams</h1>
-      {/* Search and Filter */}
-      <div className="mb-4 flex items-center space-x-4">
+      {/* Adjusted heading size slightly for smaller screens */}
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Available Exams</h1>
+
+      {/* Search and Filter - Made Responsive */}
+      {/* Stacks vertically on small screens, row on sm+ screens */}
+      {/* Uses gap for spacing, works in both flex directions */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
         {/* Search Input */}
-        <div className="relative w-full">
+        <div className="relative w-full sm:flex-1">
+          {" "}
+          {/* Takes available space on larger screens */}
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            {/* Search Icon */}
             <svg
               className="w-5 h-5 text-gray-500"
               fill="currentColor"
@@ -119,8 +122,8 @@ const ExamListPage = ({ pageContext }) => {
             <button
               className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 hover:text-gray-900 focus:outline-none"
               onClick={handleClearSearch}
+              aria-label="Clear search" // Added aria-label for accessibility
             >
-              {/* Clear Icon (X) */}
               <svg
                 className="w-4 h-4"
                 fill="currentColor"
@@ -137,16 +140,21 @@ const ExamListPage = ({ pageContext }) => {
           )}
         </div>
 
-        {/* Section Filter */}
-        <div className="inline-block relative w-64">
+        {/* Section Filter - Made Responsive */}
+        {/* Full width on small screens, fixed width on sm+ */}
+        <div className="relative w-full sm:w-48 md:w-64">
+          {" "}
+          {/* Adjusted width steps */}
           <select
             value={selectedSection}
             onChange={handleSectionChange}
             className="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
           >
             <option value="All">All Sections</option>
+            {/* Consider dynamically populating these options */}
             <option value="English">English</option>
             <option value="Math">Math</option>
+            {/* Add other sections as needed */}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
             <svg
@@ -161,8 +169,11 @@ const ExamListPage = ({ pageContext }) => {
       </div>
 
       {/* Exams Per Page Select */}
-      <div className="mb-4">
-        <label htmlFor="examsPerPage" className="mr-2">
+      {/* Added flex and items-center for better alignment, especially if label wraps */}
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="examsPerPage" className="flex-shrink-0">
+          {" "}
+          {/* Prevent label from shrinking too much */}
           Exams per page:
         </label>
         <select
@@ -177,19 +188,28 @@ const ExamListPage = ({ pageContext }) => {
         </select>
       </div>
 
-      <ul className="list-none p-0">
+      {/* Exam List */}
+      {/* Consider adding grid layout for larger screens if needed */}
+      <ul className="list-none p-0 space-y-4">
+        {" "}
+        {/* Added space-y for consistent vertical spacing */}
         {currentExams.map((exam) => (
           <li
             key={exam.exam_id}
-            className="mb-4 border border-gray-300 p-4 rounded shadow"
+            className="border border-gray-300 p-4 rounded shadow hover:shadow-md transition-shadow duration-200" // Added hover effect
           >
-            <h2 className="text-xl font-semibold mb-2">{exam.exam_name}</h2>
-            <p className="text-gray-700 mb-1">Category: {exam.test_category}</p>
-            <p className="text-gray-700 mb-1">Section: {exam.section_name}</p>
-            {/* Make sure user has access before showing the link? Or handle on next page */}
+            <h2 className="text-lg sm:text-xl font-semibold mb-2">
+              {exam.exam_name}
+            </h2>
+            <p className="text-sm sm:text-base text-gray-700 mb-1">
+              Category: {exam.test_category}
+            </p>
+            <p className="text-sm sm:text-base text-gray-700 mb-1">
+              Section: {exam.section_name}
+            </p>
             <Link
               to={`/exams/${exam.exam_id}/questions/1/`}
-              className="inline-block mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200"
+              className="inline-block mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200" // Added focus styles
             >
               Start Exam
             </Link>
@@ -197,19 +217,24 @@ const ExamListPage = ({ pageContext }) => {
         ))}
       </ul>
 
-      {/* Pagination */}
+      {/* Pagination - Made Responsive */}
+      {/* Allows buttons to wrap onto the next line on small screens */}
       {totalPages > 1 && (
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center flex-wrap gap-2 mt-8">
+          {" "}
+          {/* Use gap and flex-wrap */}
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(
             (pageNumber) => (
               <button
                 key={pageNumber}
                 onClick={() => handlePageChange(pageNumber)}
-                className={`mx-1 px-3 py-1 rounded ${
+                className={`px-3 py-1 rounded text-sm font-medium transition duration-150 ease-in-out ${
+                  // Base styles
                   currentPage === pageNumber
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    ? "bg-blue-600 text-white shadow-sm" // Active styles
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300" // Inactive styles
                 }`}
+                aria-current={currentPage === pageNumber ? "page" : undefined} // Accessibility for current page
               >
                 {pageNumber}
               </button>
