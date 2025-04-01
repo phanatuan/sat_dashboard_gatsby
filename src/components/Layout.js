@@ -25,7 +25,7 @@ const Layout = ({ children, maxWidth = "max-w-6xl" }) => {
       {/* Standard Header */}
       <header className="flex flex-wrap justify-between items-center mb-8 pb-4 border-b border-gray-200">
         <Link
-          to="/exams/"
+          to="/"
           className="text-2xl font-bold text-gray-800 hover:text-blue-700"
         >
           Exam Platform
