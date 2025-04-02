@@ -35,6 +35,8 @@ const QuestionPage = ({ pageContext }) => {
   const [checkButtonText, setCheckButtonText] = useState("Check Answer");
   const [isCorrect, setIsCorrect] = useState(false);
   const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false); // <-- Add submission state
+  const [submitError, setSubmitError] = useState(null); // <-- Add error state
 
   // --- Authorization Check Effect (Keep as is) ---
   useEffect(() => {
@@ -168,18 +170,70 @@ const QuestionPage = ({ pageContext }) => {
   const handleMarkForReview = () => setIsMarked(!isMarked); // Could also save this to localStorage if needed
 
   // --- Optional: Handler for Finishing Exam ---
-  const handleFinishExam = useCallback(() => {
+  const handleFinishExam = useCallback(async () => {
+    // Prevent double submission
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
     const storageKey = getExamAnswersKey(exam_id);
-    localStorage.removeItem(storageKey); // Clear answers for this exam
-    console.log(`Cleared answers for exam ${exam_id} from localStorage.`);
 
-    // Reset and clear the timer state and its localStorage
-    resetTimer(exam_id);
+    try {
+      // 1. Get answers from localStorage
+      const storedAnswersRaw = localStorage.getItem(storageKey);
+      const userAnswers = storedAnswersRaw ? JSON.parse(storedAnswersRaw) : {};
 
-    navigate("/exams/"); // Navigate to exam list (or results page)
-  }, [exam_id, resetTimer]);
+      if (Object.keys(userAnswers).length === 0) {
+        // Optional: Add confirmation if no answers are saved?
+        console.warn("No answers saved in localStorage to submit.");
+        // Maybe still allow submission if intended? Or show warning.
+      }
 
-  // --- Render Logic (remain largely the same) ---
+      // 2. Call the Edge Function
+      const { data, error } = await supabase.functions.invoke("submit-exam", {
+        body: {
+          examId: exam_id,
+          userAnswers: userAnswers, // Send the answers object
+        },
+      });
+
+      if (error) {
+        // Handle function invocation errors (network, permissions, etc.)
+        console.error("Error invoking submit-exam function:", error);
+        throw new Error(error.message || "Failed to submit exam.");
+      }
+
+      if (data && data.error) {
+        // Handle errors returned *from* the function logic (e.g., validation, db error)
+        console.error("Error during exam submission:", data.error);
+        throw new Error(data.error); // Throw the specific error message from the function
+      }
+
+      // 3. Success: Cleanup and Navigate
+      console.log("Exam submitted successfully:", data);
+      localStorage.removeItem(storageKey); // Clear answers for this exam
+      resetTimer(exam_id); // Reset and clear the timer state
+
+      // Navigate to a results page (pass the result ID or exam ID)
+      // Option 1: Navigate using result ID (if you create a specific page for one result)
+      // if (data?.resultId) {
+      //   navigate(`/exam-result/${data.resultId}/`);
+      // } else {
+      navigate("/exams/"); // Fallback
+      // }
+
+      // Option 2: Navigate to a general results overview for that exam
+      // navigate(`/exam-results/${exam_id}/`);
+    } catch (err) {
+      console.error("Submission failed:", err);
+      setSubmitError(
+        err.message || "An unexpected error occurred during submission."
+      );
+      // Don't clear localStorage or timer on error, allow retry
+    } finally {
+      setIsSubmitting(false); // Re-enable button
+    }
+  }, [exam_id, resetTimer, isSubmitting]); // Add isSubmitting to dependency array
 
   if (authLoading || checkingAuth) {
     return (
@@ -230,9 +284,8 @@ const QuestionPage = ({ pageContext }) => {
         </span>
       </div>
 
-      {/* Main Content (as before) */}
       <div className="flex flex-col md:flex-row gap-5">
-        {/* Left Column (as before) */}
+        {/* Left Column */}
         <div className="md:w-1/2 md:border-r md:border-gray-200 md:pr-5">
           <div
             dangerouslySetInnerHTML={{ __html: question_data.question_html }}
@@ -368,13 +421,20 @@ const QuestionPage = ({ pageContext }) => {
           <button
             onClick={handleFinishExam}
             className={`${navButtonBaseClasses} bg-green-600 text-white hover:bg-green-700`}
+            disabled={isSubmitting}
           >
-            Finish Exam
+            {isSubmitting ? "Submitting..." : "Finish Exam"}
           </button>
         ) : (
           <span className={navDisabledClasses}>Next</span>
         )}
       </div>
+      {/* Submission Error Display */}
+      {submitError && (
+        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <strong>Submission Error:</strong> {submitError}
+        </div>
+      )}
     </Layout>
   );
 };
