@@ -22,6 +22,7 @@ const QuestionList = (props) => {
   const [error, setError] = useState(null);
   const [selectedType, setSelectedType] = useState("all"); // Add state for selected type
   const [questionTypes, setQuestionTypes] = useState([]); // Add state for question types
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]); // State for selected question IDs
 
   console.log("QuestionList Render:", { isChecking, isAllowed, loading }); // Log render state
 
@@ -66,30 +67,6 @@ const QuestionList = (props) => {
       setLoading(false); // **CRITICAL:** Ensure loading is set to false
     }
   }, [selectedType]); // Add selectedType as a dependency
-
-  // Fetch question types
-  // const fetchQuestionTypes = useCallback(async () => {
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from("questions")
-  //       .select("question_type")
-  //       .distinct();
-
-  //     if (error) {
-  //       console.error("Error fetching question types:", error);
-  //       return;
-  //     }
-
-  //     console.log("Simple Query Result:", data); // Inspect the result
-
-  //     // Extract the question_type values and add an "all" option
-  //     const types = ["all", ...data.map((item) => item.question_type)];
-  //     console.log("Fetched question types:", types); // DEBUG
-  //     setQuestionTypes(types);
-  //   } catch (err) {
-  //     console.error("Error fetching question types:", err);
-  //   }
-  // }, []);
 
   // Effect to trigger fetch when allowed
   useEffect(() => {
@@ -138,6 +115,32 @@ const QuestionList = (props) => {
     setSelectedType(event.target.value);
   };
 
+  // Handle checkbox change for a single question
+  const handleQuestionSelect = (questionId) => {
+    setSelectedQuestionIds((prevSelected) => {
+      if (prevSelected.includes(questionId)) {
+        return prevSelected.filter((id) => id !== questionId); // Unselect
+      } else {
+        return [...prevSelected, questionId]; // Select
+      }
+    });
+  };
+
+  // Handle select all checkbox
+  const handleSelectAll = () => {
+    setSelectedQuestionIds((prevSelected) => {
+      const allCurrentIds = questions.map((q) => q.question_id); // IDs of *currently filtered* questions
+
+      if (allCurrentIds.every((id) => prevSelected.includes(id))) {
+        // If ALL currently displayed questions are already selected, UNSELECT them all
+        return prevSelected.filter((id) => !allCurrentIds.includes(id));
+      } else {
+        // Otherwise, SELECT all currently displayed questions, preserving any other selections
+        return [...new Set([...prevSelected, ...allCurrentIds])]; // Add all current IDs, avoiding duplicates
+      }
+    });
+  };
+
   // --- Render Logic ---
   if (isChecking) {
     console.log("Rendering: Checking Admin Permissions"); // DEBUG
@@ -159,6 +162,7 @@ const QuestionList = (props) => {
           <span className="text-gray-500">Loading...</span>
         </div>
         <p>Loading questions content...</p>
+
         <Link
           to="/admin/"
           className="text-blue-600 hover:underline mt-6 inline-block"
@@ -198,7 +202,6 @@ const QuestionList = (props) => {
   }
 
   // --- Render actual content if not checking, allowed, not loading, and no error ---
-  console.log("Rendering: Question List Table"); // DEBUG
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -233,10 +236,39 @@ const QuestionList = (props) => {
         </select>
       </div>
 
+      {/* Button to Add Selected Questions to Exam */}
+      <p>Selected Questions: {selectedQuestionIds.length}</p>
+      <button
+        onClick={() => {
+          // TODO: Implement the logic to add selected questions to an exam
+          console.log("Selected Question IDs:", selectedQuestionIds);
+          alert("Add questions to exam functionality not yet implemented");
+        }}
+        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150"
+      >
+        Add Selected to Exam
+      </button>
+
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                <input
+                  type="checkbox"
+                  onChange={handleSelectAll}
+                  checked={
+                    questions.length > 0 &&
+                    questions.every((q) =>
+                      selectedQuestionIds.includes(q.question_id)
+                    )
+                  }
+                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                />
+              </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -273,6 +305,20 @@ const QuestionList = (props) => {
             ) : (
               questions.map((question) => (
                 <tr key={question.question_id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <input
+                      type="checkbox"
+                      value={question.question_id}
+                      checked={selectedQuestionIds.includes(
+                        question.question_id
+                      )}
+                      onChange={() =>
+                        handleQuestionSelect(question.question_id)
+                      }
+                      className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    />
+                  </td>
+
                   <td
                     className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500"
                     title={question.question_id}
