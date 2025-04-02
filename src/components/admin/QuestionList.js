@@ -20,6 +20,8 @@ const QuestionList = (props) => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedType, setSelectedType] = useState("all"); // Add state for selected type
+  const [questionTypes, setQuestionTypes] = useState([]); // Add state for question types
 
   console.log("QuestionList Render:", { isChecking, isAllowed, loading }); // Log render state
 
@@ -29,10 +31,17 @@ const QuestionList = (props) => {
     setLoading(true); // Set loading true at the start of fetch attempt
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from("questions")
         .select("question_id, question_html, question_type");
-      // .order("created_at", { ascending: false });
+
+      if (selectedType !== "all") {
+        query = query.eq("question_type", selectedType);
+      }
+
+      const { data, error: fetchError } = await query.order("question_id", {
+        ascending: false,
+      });
 
       if (fetchError) {
         console.error("Supabase fetch error:", fetchError); // DEBUG
@@ -41,6 +50,13 @@ const QuestionList = (props) => {
       console.log("Fetch successful, setting questions"); // DEBUG
       setQuestions(data || []);
       setError(null); // Clear error on success
+
+      // Extract unique question types from the fetched questions
+      const uniqueTypes = [
+        "all",
+        ...new Set(data.map((q) => q.question_type).filter(Boolean)), // Filter out null/undefined
+      ];
+      setQuestionTypes(uniqueTypes);
     } catch (err) {
       console.error("Error caught in fetchQuestions:", err); // DEBUG
       setError(err.message);
@@ -49,7 +65,31 @@ const QuestionList = (props) => {
       console.log("Running finally block, setting loading false"); // DEBUG
       setLoading(false); // **CRITICAL:** Ensure loading is set to false
     }
-  }, []); // Empty dependency array for useCallback - fetch logic doesn't depend on props/state here
+  }, [selectedType]); // Add selectedType as a dependency
+
+  // Fetch question types
+  // const fetchQuestionTypes = useCallback(async () => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from("questions")
+  //       .select("question_type")
+  //       .distinct();
+
+  //     if (error) {
+  //       console.error("Error fetching question types:", error);
+  //       return;
+  //     }
+
+  //     console.log("Simple Query Result:", data); // Inspect the result
+
+  //     // Extract the question_type values and add an "all" option
+  //     const types = ["all", ...data.map((item) => item.question_type)];
+  //     console.log("Fetched question types:", types); // DEBUG
+  //     setQuestionTypes(types);
+  //   } catch (err) {
+  //     console.error("Error fetching question types:", err);
+  //   }
+  // }, []);
 
   // Effect to trigger fetch when allowed
   useEffect(() => {
@@ -63,7 +103,7 @@ const QuestionList = (props) => {
       setError(null);
     }
     // fetchQuestions is stable due to useCallback, so isAllowed is the correct dependency
-  }, [isAllowed, fetchQuestions]);
+  }, [isAllowed, fetchQuestions]); // Added fetchQuestionTypes
 
   // Handle Deletion
   const handleDelete = async (questionId) => {
@@ -91,6 +131,11 @@ const QuestionList = (props) => {
         alert(`Error deleting question: ${err.message}`);
       }
     }
+  };
+
+  // Handle Type Change
+  const handleTypeChange = (event) => {
+    setSelectedType(event.target.value);
   };
 
   // --- Render Logic ---
@@ -164,6 +209,28 @@ const QuestionList = (props) => {
         >
           Add New Question
         </Link>
+      </div>
+
+      {/* Question Type Filter */}
+      <div className="mb-4">
+        <label
+          htmlFor="questionType"
+          className="block text-gray-700 text-sm font-bold mb-2"
+        >
+          Filter by Type:
+        </label>
+        <select
+          id="questionType"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          value={selectedType}
+          onChange={handleTypeChange}
+        >
+          {questionTypes.map((type) => (
+            <option key={type} value={type}>
+              {type === "all" ? "All Types" : type}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="overflow-x-auto shadow-md rounded-lg">
