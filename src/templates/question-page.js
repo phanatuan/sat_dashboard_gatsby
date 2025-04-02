@@ -381,7 +381,7 @@ const QuestionPage = ({ pageContext }) => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex justify-between items-center mt-8 pt-3 border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 z-10 flex justify-between items-center bg-white px-6 py-3 shadow-md">
         {/* Back Button */}
         {prev_question_path ? (
           <Link to={prev_question_path} className={navLinkClasses}>
@@ -390,7 +390,6 @@ const QuestionPage = ({ pageContext }) => {
         ) : (
           <span className={navDisabledClasses}>Back</span>
         )}
-
         {/* Check Answer Button (conditional rendering might be better if not practice mode) */}
         {allow_practice_mode && (
           <button
@@ -410,7 +409,6 @@ const QuestionPage = ({ pageContext }) => {
         )}
         {/* Spacer if check button isn't shown */}
         {!allow_practice_mode && <div></div>}
-
         {/* Next/Finish Button */}
         {next_question_path ? (
           <Link to={next_question_path} className={navLinkClasses}>
