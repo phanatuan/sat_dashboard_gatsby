@@ -276,12 +276,19 @@ const QuestionPage = ({ pageContext }) => {
   return (
     <Layout>
       {/* Top Bar (as before) */}
-      <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-200">
-        <span className="font-semibold">{exam_name}</span>
-        <span>{formattedTime}</span>
-        <span className="text-sm text-gray-600">
-          {question_order} / {total_questions_in_exam}
-        </span>
+      <div className="flex items-center mb-5 pb-3 border-b border-gray-200">
+        <div className="flex-1 text-left">
+          <span className="font-semibold">{exam_name}</span>
+        </div>
+        <div className="flex-1 text-center">
+          <span>{formattedTime}</span>
+        </div>
+
+        <div className="flex-1 text-right">
+          <span className="text-sm text-gray-600">
+            {question_order} / {total_questions_in_exam}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-5">
