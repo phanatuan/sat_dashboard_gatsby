@@ -53,29 +53,35 @@ const QuestionPage = ({ pageContext }) => {
       setCheckingAuth(false);
       return;
     }
-    const checkStudentAccess = async () => {
-      try {
-        const { error, count } = await supabase
-          .from("user_exam_access")
-          .select("exam_id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("exam_id", exam_id);
-        if (error) throw error;
-        if (count > 0) {
-          setIsAuthorized(true);
-        } else {
-          setIsAuthorized(false);
-          // Optional: navigate('/exams/');
-        }
-      } catch (err) {
-        console.error("Error checking access:", err);
-        setIsAuthorized(false);
-        // Optional: navigate('/exams/');
-      } finally {
-        setCheckingAuth(false);
-      }
-    };
-    checkStudentAccess();
+    if (user) {
+      setIsAuthorized(true);
+      setCheckingAuth(false);
+      return;
+    }
+
+    // const checkStudentAccess = async () => {
+    //   try {
+    //     const { error, count } = await supabase
+    //       .from("user_exam_access")
+    //       .select("exam_id", { count: "exact", head: true })
+    //       .eq("user_id", user.id)
+    //       .eq("exam_id", exam_id);
+    //     if (error) throw error;
+    //     if (count > 0) {
+    //       setIsAuthorized(true);
+    //     } else {
+    //       setIsAuthorized(false);
+    //       // Optional: navigate('/exams/');
+    //     }
+    //   } catch (err) {
+    //     console.error("Error checking access:", err);
+    //     setIsAuthorized(false);
+    //     // Optional: navigate('/exams/');
+    //   } finally {
+    //     setCheckingAuth(false);
+    //   }
+    // };
+    // checkStudentAccess();
   }, [user, isAdmin, authLoading, exam_id]);
 
   // --- Load Answer from Local Storage Effect ---
