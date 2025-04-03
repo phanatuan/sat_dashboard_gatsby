@@ -34,10 +34,10 @@ const QuestionList = (props) => {
     try {
       let query = supabase
         .from("questions")
-        .select("question_id, question_html, question_type");
+        .select("question_id, question_html, skill");
 
       if (selectedType !== "all") {
-        query = query.eq("question_type", selectedType);
+        query = query.eq("skill", selectedType);
       }
 
       const { data, error: fetchError } = await query.order("question_id", {
@@ -55,7 +55,7 @@ const QuestionList = (props) => {
       // Extract unique question types from the fetched questions
       const uniqueTypes = [
         "all",
-        ...new Set(data.map((q) => q.question_type).filter(Boolean)), // Filter out null/undefined
+        ...new Set(data.map((q) => q.domain).filter(Boolean)), // Filter out null/undefined
       ];
       setQuestionTypes(uniqueTypes);
     } catch (err) {
@@ -333,7 +333,7 @@ const QuestionList = (props) => {
                     {createSnippet(question.question_html, 100)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {question.question_type || "-"}
+                    {question.skill || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     <Link

@@ -50,7 +50,8 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
             answer_d,
             correct_answer,
             explanation,
-            question_type
+            domain,
+            skill
         )
     `
       )

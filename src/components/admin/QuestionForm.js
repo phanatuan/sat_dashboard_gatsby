@@ -22,7 +22,8 @@ const QuestionForm = (props) => {
     answer_d: "",
     correct_answer: "A", // Default correct answer
     explanation: "",
-    question_type: "",
+    domain: "",
+    skill: "",
   });
   const [loading, setLoading] = useState(false); // For fetching/submitting
   const [error, setError] = useState(null);
@@ -51,7 +52,8 @@ const QuestionForm = (props) => {
           answer_d: data.answer_d || "",
           correct_answer: data.correct_answer || "A",
           explanation: data.explanation || "",
-          question_type: data.question_type || "",
+          skill: data.skill || "",
+          domain: data.domain || "",
         });
       } else {
         setError(`Question with ID ${questionId} not found.`);
@@ -78,7 +80,8 @@ const QuestionForm = (props) => {
         answer_d: "",
         correct_answer: "A",
         explanation: "",
-        question_type: "",
+        skill: "",
+        domain: "",
       });
       setLoading(false); // Ensure loading is false for create form
     }
@@ -349,16 +352,16 @@ const QuestionForm = (props) => {
         {/* Question Type */}
         <div>
           <label
-            htmlFor="question_type"
+            htmlFor="skill"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            Question Type (Optional)
+            Skill (Optional)
           </label>
           <input
             type="text"
-            id="question_type"
-            name="question_type"
-            value={formData.question_type}
+            id="skill"
+            name="skill"
+            value={formData.skill}
             onChange={handleChange}
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             placeholder="e.g., Reading Comprehension, Math - Algebra"
