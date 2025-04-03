@@ -40,14 +40,6 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     return;
   }
   reporter.info(`Fetched ${examsData ? examsData.length : 0} exams.`);
-  // --- DEBUG: Log fetched exams ---
-  // console.log("Fetched Exams Sample:", JSON.stringify(examsData?.slice(0, 2), null, 2));
-  // --- DEBUG: Check if specific exam ID exists ---
-  const specificExamExists = examsData?.some((e) => e.exam_id === "e514367");
-  reporter.info(
-    `--- DEBUG: Does exam 'e514367' exist in fetched exams data? ${specificExamExists}`
-  );
-
   reporter.info(
     "Fetching exam_questions data (with nested questions) from Supabase..."
   );
@@ -91,39 +83,6 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
       examQuestionsData ? examQuestionsData.length : 0
     } exam-question relationships.`
   );
-  // --- DEBUG: Check raw data for the specific exam/question ---
-  const specificRawEQ = examQuestionsData?.find(
-    (eq) => eq.exam_id === "e514367" && eq.question_order === 23
-  );
-  reporter.info(
-    `--- DEBUG: Found raw exam_question for 'e514367' order 23? ${!!specificRawEQ}`
-  );
-  if (specificRawEQ) {
-    reporter.info(
-      `--- DEBUG: Raw data for 'e514367' order 23: ${JSON.stringify(
-        specificRawEQ
-      )}`
-    );
-    reporter.info(
-      `--- DEBUG: Nested question data present in raw data? ${!!specificRawEQ.questions}`
-    );
-    if (specificRawEQ.questions) {
-      reporter.info(
-        `--- DEBUG: Nested question_id: ${specificRawEQ.questions.question_id}`
-      );
-    }
-  } else {
-    reporter.warn(
-      `--- DEBUG: Could not find raw exam_question entry for exam_id='e514367' AND question_order=23.`
-    );
-    // Check if the exam ID exists at all in exam_questions
-    const anyEQforExam = examQuestionsData?.some(
-      (eq) => eq.exam_id === "e514367"
-    );
-    reporter.info(
-      `--- DEBUG: Found *any* exam_question entry for exam_id='e514367'? ${anyEQforExam}`
-    );
-  }
 
   // --- 3. Process and Group Data ---
   reporter.info("Processing and grouping fetched data...");
@@ -161,54 +120,11 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
         }, Has nested questions data? ${!!eq.questions}`
       );
       orphanedCount++;
-      // --- DEBUG: Log the specific problematic orphan if it matches ---
-      if (eq.exam_id === "e514367" && eq.question_order === 23) {
-        reporter.error(
-          `--- !!! DEBUG: The specific question ('e514367', 23) was detected as ORPHANED/INCOMPLETE during processing!`
-        );
-      }
     }
   });
   reporter.info(
     `Processed ${processedCount} relationships successfully, ${orphanedCount} orphaned/incomplete.`
   );
-
-  // --- DEBUG: Check processed structure for the specific exam ---
-  const specificProcessedExam = examsWithQuestions["e514367"];
-  if (specificProcessedExam) {
-    reporter.info(
-      `--- DEBUG: Found processed exam 'e514367'. It has ${specificProcessedExam.questions.length} questions.`
-    );
-    const specificProcessedQuestion = specificProcessedExam.questions.find(
-      (q) => q.question_order === 23
-    );
-    reporter.info(
-      `--- DEBUG: Found question order 23 within processed exam 'e514367'? ${!!specificProcessedQuestion}`
-    );
-    if (specificProcessedQuestion) {
-      reporter.info(
-        `--- DEBUG: Processed data for question 23: ${JSON.stringify(
-          specificProcessedQuestion
-        )}`
-      );
-    } else {
-      // If not found here, but found in raw, the processing/push logic might be flawed
-      reporter.warn(
-        `--- DEBUG: Question order 23 NOT FOUND in the processed questions array for exam 'e514367', even though the exam exists.`
-      );
-      // Log the orders that *are* present for this exam
-      const ordersPresent = specificProcessedExam.questions
-        .map((q) => q.question_order)
-        .join(", ");
-      reporter.info(
-        `--- DEBUG: Orders present for exam 'e514367': [${ordersPresent}]`
-      );
-    }
-  } else {
-    reporter.warn(
-      `--- DEBUG: Exam 'e514367' NOT FOUND in the final 'examsWithQuestions' map after processing.`
-    );
-  }
 
   // Ensure sorting (redundant but safe)
   Object.values(examsWithQuestions).forEach((exam) => {
@@ -216,21 +132,6 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   });
 
   reporter.info("Data processing complete.");
-
-  // --- 4. Create Exam List Page ---
-  reporter.info("Creating Exam List page...");
-  try {
-    createPage({
-      path: `/exams/`,
-      component: path.resolve("./src/templates/exam-list-page.js"),
-      context: {
-        allExams: examsData,
-      },
-    });
-    reporter.info("--> SUCCESS creating Exam List page at /exams/");
-  } catch (pageError) {
-    reporter.error("--> FAILED creating Exam List page", pageError);
-  }
 
   // --- 5. Create Individual Question Pages ---
   reporter.info("Starting creation of individual question pages...");
@@ -252,40 +153,6 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     questions.forEach((question, index) => {
       const currentOrder = question.question_order;
       const pagePath = `/exams/${exam.exam_id}/questions/${currentOrder}/`;
-
-      // --- DEBUG: Log right before creating the specific page ---
-      if (exam.exam_id === "e514367" && currentOrder === 23) {
-        reporter.info(
-          `--->>> ATTEMPTING createPage for SPECIFIC path: ${pagePath}`
-        );
-        reporter.info(
-          `--->>> Context for ${pagePath}: ${JSON.stringify(
-            {
-              exam_id: exam.exam_id,
-              question_order: currentOrder,
-              total_questions_in_exam: totalQuestions,
-              // Only log keys or small parts of question_data to avoid huge logs
-              question_data_keys: Object.keys(question),
-              question_id_in_data: question.question_id,
-              // prev/next paths are good to check too
-              prev_path:
-                index > 0
-                  ? `/exams/${exam.exam_id}/questions/${
-                      questions[index - 1].question_order
-                    }/`
-                  : null,
-              next_path:
-                index < totalQuestions - 1
-                  ? `/exams/${exam.exam_id}/questions/${
-                      questions[index + 1].question_order
-                    }/`
-                  : null,
-            },
-            null,
-            2
-          )}`
-        ); // Pretty print context
-      }
 
       // Determine previous and next question paths
       const prevQuestion = index > 0 ? questions[index - 1] : null;
@@ -314,25 +181,13 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
           },
         });
         questionPageCount++;
-        // --- DEBUG: Confirm creation for specific page ---
-        if (exam.exam_id === "e514367" && currentOrder === 23) {
-          reporter.info(`--->>> SUCCESS calling createPage for ${pagePath}`);
-          specificPageCreated = true;
-        }
       } catch (error) {
         reporter.error(
           `!!! FAILED calling createPage for path: ${pagePath}`,
           error
         );
-        // --- DEBUG: Specific failure ---
-        if (exam.exam_id === "e514367" && currentOrder === 23) {
-          reporter.error(
-            `--->>> !!! The createPage call ITSELF failed for the specific page ${pagePath}!`
-          );
-        }
       }
     });
-    // reporter.info(`Created ${totalQuestions} question pages for Exam: ${exam.exam_name}`); // Can be verbose
   });
 
   reporter.info(
