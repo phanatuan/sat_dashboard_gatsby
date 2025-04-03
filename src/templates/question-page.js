@@ -312,7 +312,7 @@ const QuestionPage = ({ pageContext }) => {
             {isMarked ? "Unmark Review" : "Mark for Review"}
           </button>
           {question_data.leading_sentence && (
-            <p className="italic text-gray-600 mb-4">
+            <p className="text-gray-600 mb-4">
               {question_data.leading_sentence}
             </p>
           )}
