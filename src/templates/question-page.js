@@ -366,20 +366,34 @@ const QuestionPage = ({ pageContext }) => {
           })}
           {/* Practice Mode Specific Controls */}
           {allow_practice_mode && (
-            <div className="mt-5 space-y-3">
+            // Use Flexbox for better control: column layout, align items left, consistent gap
+            <div className="mt-5 flex flex-col items-start gap-3">
               {/* Check Answer Button */}
               <button
                 onClick={handleCheck}
                 className={clsx(
-                  `${navButtonBaseClasses} text-white w-full md:w-auto`,
-                  !selectedAnswer ? "bg-gray-400 cursor-not-allowed" : "", // Disabled if no selection
-                  isCorrect ? "bg-green-600 hover:bg-green-700" : "", // Green if correct shown
-                  feedback.correct === false
+                  navButtonBaseClasses, // Use consistent base padding/rounding
+                  "text-white", // Base text color (overridden by states)
+                  // Conditional background/state classes:
+                  !selectedAnswer ? "bg-gray-400 cursor-not-allowed" : "",
+                  isCorrect ? "bg-green-600 hover:bg-green-700" : "",
+                  !isCorrect && feedback.checked // If checked and incorrect
                     ? "bg-red-600 hover:bg-red-700"
-                    : "bg-blue-600 hover:bg-blue-700" // Red if incorrect shown, else blue
+                    : "",
+                  !feedback.checked && selectedAnswer // Default active blue if not checked yet
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "",
+                  // Fallback if no answer selected (covered by disabled state but good practice)
+                  !selectedAnswer
+                    ? "bg-gray-400"
+                    : "bg-blue-600 hover:bg-blue-700"
                 )}
-                // Disable if correct shown, nothing selected, or already checked
-                disabled={isCorrect || !selectedAnswer || feedback.checked}
+                // Disable if correct shown, nothing selected, or already checked incorrectly
+                disabled={
+                  isCorrect ||
+                  !selectedAnswer ||
+                  (!isCorrect && feedback.checked)
+                }
               >
                 {checkButtonText}
               </button>
@@ -387,13 +401,19 @@ const QuestionPage = ({ pageContext }) => {
               {/* Explanation Toggle Button */}
               <button
                 onClick={handleToggleExplanation}
-                className="px-3 py-1 border border-gray-400 rounded hover:bg-gray-100 transition duration-150 text-sm"
+                className={clsx(
+                  navButtonBaseClasses, // Use consistent base padding/rounding
+                  // Style like a secondary/outline button:
+                  "bg-white border border-gray-400 text-gray-700 hover:bg-gray-100"
+                )}
               >
                 {showExplanation ? "Hide Explanation" : "Show Explanation"}
               </button>
+
               {/* Explanation Content */}
               {showExplanation && (
-                <div className="mt-3 p-3 border-t border-gray-200 bg-gray-50 rounded">
+                // Ensure explanation also aligns well, give it full width in the flex container
+                <div className="w-full mt-1 p-3 border-t border-gray-200 bg-gray-50 rounded">
                   <p className="font-semibold text-gray-800">Explanation:</p>
                   <p className="mb-2 text-gray-700">
                     {question_data.explanation || "No explanation provided."}
@@ -405,7 +425,7 @@ const QuestionPage = ({ pageContext }) => {
               )}
             </div>
           )}{" "}
-          {/* End Practice Mode Controls */}
+          {/* End Practice Mode Controls */}{" "}
         </div>{" "}
         {/* End Right Column */}
       </div>{" "}
