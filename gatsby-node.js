@@ -1,7 +1,7 @@
 // gatsby-node.js
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
-const { decodeMojibake } = require("./src/utils/decodeHTML"); // Import the decodeMojibake function
+const { decodeMojibake } = require("./src/utils/decodeHtml");
 
 // Load environment variables
 require("dotenv").config({

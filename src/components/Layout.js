@@ -8,6 +8,7 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
 
   const handleLogout = async () => {
     try {
+      console.log("Logging out...");
       await signOut();
       navigate("/login/");
     } catch (error) {

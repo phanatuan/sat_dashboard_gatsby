@@ -4,7 +4,7 @@ import { supabase } from "../../supabaseClient";
 import Layout from "../../components/Layout";
 import QuestionReviewModal from "../../components/QuestionReviewModal";
 import { useAuth } from "../../context/AuthContext";
-import { decodeMojibake } from "../../utils/decodeHTML";
+import { decodeMojibake } from "../../utils/decodeHtml";
 import clsx from "clsx";
 
 const ExamResultPage = (props) => {
