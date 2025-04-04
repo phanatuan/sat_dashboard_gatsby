@@ -1,6 +1,7 @@
 // gatsby-node.js
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
+const { decodeMojibake } = require("./src/utils/decodeHTML"); // Import the decodeMojibake function
 
 // Load environment variables
 require("dotenv").config({
@@ -95,16 +96,22 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   let orphanedCount = 0;
   examQuestionsData.forEach((eq) => {
     if (examsWithQuestions[eq.exam_id] && eq.questions) {
-      // --- DEBUG: Log when adding the specific question ---
-      if (eq.exam_id === "e514367" && eq.question_order === 23) {
-        reporter.info(
-          `--- DEBUG: Processing and adding question order 23 for exam 'e514367'. Question data: ${JSON.stringify(
-            eq.questions
-          )}`
-        );
-      }
+      // --- 4. DECODE the question data HERE ---
+      const originalQuestion = eq.questions;
+      const decodedQuestion = {
+        ...originalQuestion, // Keep non-text fields (question_id, correct_answer, domain, skill)
+        question_html: decodeMojibake(originalQuestion.question_html),
+        leading_sentence: decodeMojibake(originalQuestion.leading_sentence),
+        answer_a: decodeMojibake(originalQuestion.answer_a),
+        answer_b: decodeMojibake(originalQuestion.answer_b),
+        answer_c: decodeMojibake(originalQuestion.answer_c),
+        answer_d: decodeMojibake(originalQuestion.answer_d),
+        explanation: decodeMojibake(originalQuestion.explanation),
+      };
+      // ------------------------------------------
+
       examsWithQuestions[eq.exam_id].questions.push({
-        ...eq.questions,
+        ...decodedQuestion,
         question_order: eq.question_order,
       });
       processedCount++;

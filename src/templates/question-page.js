@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { supabase } from "../supabaseClient";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
-import { useExamTimer } from "../context/ExamTimerContext"; // Import the timer hook
+import { useExamTimer } from "../context/ExamTimerContext";
 
 // --- Helper function for localStorage ---
 const getExamAnswersKey = (examId) => `examAnswers_${examId}`;

@@ -3,4 +3,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: Add any custom base styles or custom component classes here */
+/* --- Add custom sr-only definition below Tailwind directives --- */
+.sr-only {
+  position: absolute !important; /* Use !important cautiously, but often needed here to override potential Tailwind conflicts */
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border-width: 0 !important;
+}

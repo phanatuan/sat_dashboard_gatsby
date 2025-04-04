@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, navigate } from "gatsby";
+import { navigate } from "gatsby";
 import { supabase } from "../../supabaseClient";
 import Layout from "../../components/Layout";
 import QuestionReviewModal from "../../components/QuestionReviewModal";
