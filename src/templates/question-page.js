@@ -6,9 +6,41 @@ import { supabase } from "../supabaseClient";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useExamTimer } from "../context/ExamTimerContext";
+// Removed FontAwesome imports as they are now in NavigationModal.js
 
-// --- Helper function for localStorage ---
-const getExamAnswersKey = (examId) => `examAnswers_${examId}`;
+// --- Import the extracted modal component ---
+import NavigationModal from "../components/NavigationModal"; // Adjust path if needed
+
+// --- Helper functions for localStorage (keep as they are) ---
+const getExamStateKey = (examId) => `examState_${examId}`;
+const loadExamStateFromLocalStorage = (examId) => {
+  if (typeof window === "undefined") {
+    return { answers: {}, marked: {} };
+  }
+  const storageKey = getExamStateKey(examId);
+  try {
+    const storedStateRaw = localStorage.getItem(storageKey);
+    if (storedStateRaw) {
+      const state = JSON.parse(storedStateRaw);
+      return {
+        answers: state.answers || {},
+        marked: state.marked || {},
+      };
+    }
+  } catch (error) {
+    console.error("Error reading exam state from localStorage:", error);
+  }
+  return { answers: {}, marked: {} };
+};
+const saveExamStateToLocalStorage = (examId, state) => {
+  if (!state || typeof window === "undefined") return;
+  const storageKey = getExamStateKey(examId);
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch (error) {
+    console.error("Error saving exam state to localStorage:", error);
+  }
+};
 
 const QuestionPage = ({ pageContext }) => {
   const {
@@ -20,25 +52,33 @@ const QuestionPage = ({ pageContext }) => {
     total_questions_in_exam,
     prev_question_path,
     next_question_path,
+    all_question_paths, // Provided by gatsby-node
   } = pageContext;
 
-  // --- Auth and Authorization State ---
+  // --- State ---
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
-  const { formattedTime, resetTimer } = useExamTimer(); // Get timer state and reset functions
-  const [selectedAnswer, setSelectedAnswer] = useState(null); // Initial state is null
+  const { formattedTime, resetTimer } = useExamTimer();
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [feedback, setFeedback] = useState({ correct: null, checked: false });
+  // 'isMarked' holds the marked status ONLY for the CURRENT question being viewed
   const [isMarked, setIsMarked] = useState(false);
   const [checkButtonText, setCheckButtonText] = useState("Check Answer");
   const [isCorrect, setIsCorrect] = useState(false);
   const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
-  const [isSubmitting, setIsSubmitting] = useState(false); // <-- Add submission state
-  const [submitError, setSubmitError] = useState(null); // <-- Add error state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // 'allQuestionStatuses' holds the { answers: {}, marked: {} } object for ALL questions, loaded from LS
+  const [allQuestionStatuses, setAllQuestionStatuses] = useState({
+    answers: {},
+    marked: {},
+  });
 
-  // --- Authorization Check Effect (Keep as is) ---
+  // --- Effects ---
+  // Authorization Check Effect
   useEffect(() => {
     if (authLoading) {
       setCheckingAuth(true);
@@ -48,237 +88,192 @@ const QuestionPage = ({ pageContext }) => {
       navigate("/login/");
       return;
     }
-    if (isAdmin) {
-      setIsAuthorized(true);
-      setCheckingAuth(false);
-      return;
-    }
-    if (user) {
-      setIsAuthorized(true);
-      setCheckingAuth(false);
-      return;
-    }
-
-    // const checkStudentAccess = async () => {
-    //   try {
-    //     const { error, count } = await supabase
-    //       .from("user_exam_access")
-    //       .select("exam_id", { count: "exact", head: true })
-    //       .eq("user_id", user.id)
-    //       .eq("exam_id", exam_id);
-    //     if (error) throw error;
-    //     if (count > 0) {
-    //       setIsAuthorized(true);
-    //     } else {
-    //       setIsAuthorized(false);
-    //       // Optional: navigate('/exams/');
-    //     }
-    //   } catch (err) {
-    //     console.error("Error checking access:", err);
-    //     setIsAuthorized(false);
-    //     // Optional: navigate('/exams/');
-    //   } finally {
-    //     setCheckingAuth(false);
-    //   }
-    // };
-    // checkStudentAccess();
+    setIsAuthorized(true);
+    setCheckingAuth(false);
   }, [user, isAdmin, authLoading, exam_id]);
 
-  // --- Load Answer from Local Storage Effect ---
+  // Load state from Local Storage when component mounts or question changes
   useEffect(() => {
-    // Only run if authorized and question data exists
-    if (!isAuthorized || !question_data) return;
+    if (!isAuthorized || !question_data || typeof window === "undefined")
+      return;
 
-    const storageKey = getExamAnswersKey(exam_id);
-    try {
-      const storedAnswersRaw = localStorage.getItem(storageKey);
-      if (storedAnswersRaw) {
-        const storedAnswers = JSON.parse(storedAnswersRaw);
-        const previousAnswer = storedAnswers[question_order]; // Get answer for *this* question order
-        if (previousAnswer) {
-          setSelectedAnswer(previousAnswer);
-          console.log(
-            `Loaded answer ${previousAnswer} for question ${question_order} from localStorage`
-          );
-        } else {
-          setSelectedAnswer(null); // Reset if no answer stored for this specific question
-        }
-      } else {
-        setSelectedAnswer(null); // Reset if no answers object exists yet for the exam
-      }
-    } catch (error) {
-      console.error("Error reading answers from localStorage:", error);
-      // Optionally clear corrupted data: localStorage.removeItem(storageKey);
-      setSelectedAnswer(null); // Reset on error
-    }
+    const examState = loadExamStateFromLocalStorage(exam_id);
+    const previousAnswer = examState.answers[question_order];
+    const previousMarked = examState.marked[question_order];
+
+    // Update state for the current question
+    setSelectedAnswer(previousAnswer || null);
+    setIsMarked(!!previousMarked); // Set the isMarked state for the current question's button
+
+    // Load the complete status object for the modal
+    setAllQuestionStatuses(examState);
+
+    // Reset other question-specific states
     setIncorrectAnswers(new Set());
-    // Reset explanation visibility when question changes
     setShowExplanation(false);
-    // We could load/save the 'isMarked' state similarly if desired
-  }, [exam_id, question_order, isAuthorized, question_data]); // Rerun when question changes or auth resolves
+    setFeedback({ correct: null, checked: false });
+    setIsCorrect(false);
+    setCheckButtonText("Check Answer");
+  }, [exam_id, question_order, isAuthorized, question_data]); // Dependencies
 
-  // --- Save Answer to Local Storage Function (called by handleSelectAnswer) ---
+  // --- Save Answer Logic ---
   const saveAnswerToLocalStorage = (choice) => {
-    if (!isAuthorized) return; // Don't save if not authorized
-
-    const storageKey = getExamAnswersKey(exam_id);
-    try {
-      const storedAnswersRaw = localStorage.getItem(storageKey);
-      let currentAnswers = {};
-      if (storedAnswersRaw) {
-        currentAnswers = JSON.parse(storedAnswersRaw);
-      }
-      // Update the answer for the current question
-      currentAnswers[question_order] = choice;
-      // Save back to localStorage
-      localStorage.setItem(storageKey, JSON.stringify(currentAnswers));
-      console.log(
-        `Saved answer ${choice} for question ${question_order} to localStorage`
-      );
-    } catch (error) {
-      console.error("Error saving answer to localStorage:", error);
-    }
+    if (!isAuthorized || typeof window === "undefined") return;
+    const currentState = loadExamStateFromLocalStorage(exam_id);
+    const updatedState = {
+      ...currentState,
+      answers: { ...currentState.answers, [question_order]: choice },
+    };
+    saveExamStateToLocalStorage(exam_id, updatedState);
+    // Update the shared state used by the modal
+    setAllQuestionStatuses(updatedState);
   };
 
   // --- Handlers ---
+  // Select an answer choice
   const handleSelectAnswer = (answerChoice) => {
     setSelectedAnswer(answerChoice);
-    // Reset feedback on new selection, but keep 'checked' as true
-
+    // Clear any strikethrough if selecting a previously incorrect answer
     if (incorrectAnswers.has(answerChoice)) {
       const newIncorrectAnswers = new Set(incorrectAnswers);
       newIncorrectAnswers.delete(answerChoice);
       setIncorrectAnswers(newIncorrectAnswers);
     }
-
+    // Reset feedback state
     setFeedback({ correct: null, checked: false });
     setIsCorrect(false);
-    saveAnswerToLocalStorage(answerChoice); // <<< SAVE HERE
-
-    console.log("Selected:", answerChoice);
+    // Save the selected answer
+    saveAnswerToLocalStorage(answerChoice);
   };
 
+  // Check answer (Practice Mode)
   const handleCheck = () => {
-    if (selectedAnswer) {
+    if (selectedAnswer && question_data) {
       const correct = selectedAnswer === question_data.correct_answer;
       setFeedback({ correct: correct, checked: true });
       setIsCorrect(correct);
-      if (correct) {
-        setCheckButtonText("Correct!");
-      } else {
-        setCheckButtonText("Check Again");
+      setCheckButtonText(correct ? "Correct!" : "Check Again");
+      if (!correct) {
         setIncorrectAnswers(new Set(incorrectAnswers).add(selectedAnswer));
       }
     }
   };
 
+  // Toggle explanation visibility (Practice Mode)
   const handleToggleExplanation = () => setShowExplanation(!showExplanation);
-  const handleMarkForReview = () => setIsMarked(!isMarked); // Could also save this to localStorage if needed
 
-  // --- Optional: Handler for Finishing Exam ---
-  const handleFinishExam = useCallback(async () => {
-    // Prevent double submission
-    if (isSubmitting) return;
+  // Mark or unmark the *current* question for review
+  const handleMarkForReview = () => {
+    if (typeof window === "undefined") return;
+    // Toggle the state variable that controls the button's appearance
+    const newMarkedStatus = !isMarked;
+    setIsMarked(newMarkedStatus);
 
+    // Update the status in Local Storage and the shared state object
+    if (!isAuthorized) return;
+    const currentState = loadExamStateFromLocalStorage(exam_id);
+    const updatedMarked = { ...currentState.marked };
+    if (newMarkedStatus) {
+      updatedMarked[question_order] = true; // Add mark for this question order
+    } else {
+      delete updatedMarked[question_order]; // Remove mark for this question order
+    }
+    const updatedState = { ...currentState, marked: updatedMarked };
+    saveExamStateToLocalStorage(exam_id, updatedState);
+    // Ensure the state passed to the modal is updated
+    setAllQuestionStatuses(updatedState);
+  };
+
+  // Open the navigation modal
+  const handleOpenModal = () => {
+    if (typeof window === "undefined") return;
+    // Load the latest state from LS when opening to ensure modal is up-to-date
+    setAllQuestionStatuses(loadExamStateFromLocalStorage(exam_id));
+    setIsModalOpen(true);
+  };
+
+  // Navigate to a specific question from the modal
+  const navigateToQuestion = (qNum) => {
+    const path = all_question_paths?.[qNum]; // Use paths from gatsby-node context
+    if (path) {
+      navigate(path);
+      setIsModalOpen(false); // Close modal on navigation
+    } else {
+      console.error(`Path for question ${qNum} not found.`);
+    }
+  };
+
+  // Navigate to the main review page
+  const navigateToReviewPage = () => {
+    navigate(`/exam-review/${exam_id}/`);
+    setIsModalOpen(false); // Close modal on navigation
+  };
+
+  // --- Direct Finish (Fallback - submission logic primarily on review page) ---
+  // NOTE: This function is less likely to be used if the 'Review' button always shows last.
+  const handleFinishExamDirectly = useCallback(async () => {
+    if (isSubmitting || typeof window === "undefined") return;
     setIsSubmitting(true);
     setSubmitError(null);
-    const storageKey = getExamAnswersKey(exam_id);
-
+    const finalExamState = loadExamStateFromLocalStorage(exam_id);
+    const userAnswers = finalExamState.answers || {};
     try {
-      // 1. Get answers from localStorage
-      const storedAnswersRaw = localStorage.getItem(storageKey);
-      const userAnswers = storedAnswersRaw ? JSON.parse(storedAnswersRaw) : {};
-      console.log("User answers:", userAnswers);
-
-      if (Object.keys(userAnswers).length === 0) {
-        console.warn("No answers saved in localStorage to submit.");
-      }
-
-      // 2. Call the Edge Function
       const { data, error } = await supabase.functions.invoke("submit-exam", {
-        body: {
-          examId: exam_id,
-          userAnswers: userAnswers, // Send the answers object
-        },
+        body: { examId: exam_id, userAnswers: userAnswers },
       });
-
-      if (error) {
-        // Handle function invocation errors (network, permissions, etc.)
-        console.error("Error invoking submit-exam function:", error);
-        throw new Error(error.message || "Failed to submit exam.");
-      }
-
-      if (data && data.error) {
-        // Handle errors returned *from* the function logic (e.g., validation, db error)
-        console.error("Error during exam submission:", data.error);
-        throw new Error(data.error); // Throw the specific error message from the function
-      }
-
-      // 3. Success: Cleanup and Navigate
+      if (error) throw new Error(error.message || "Failed to submit exam.");
+      if (data && data.error) throw new Error(data.error);
       console.log("Exam submitted successfully:", data);
-      localStorage.removeItem(storageKey); // Clear answers for this exam
-      resetTimer(exam_id); // Reset and clear the timer state
-
-      // --- NAVIGATION CHANGE ---
+      localStorage.removeItem(getExamStateKey(exam_id));
+      resetTimer(exam_id);
       if (data?.resultId) {
         navigate(`/exam-result/${data.resultId}/`);
       } else {
         console.error("Submission successful but no resultId received.");
         navigate("/exams/");
       }
-      // --- END NAVIGATION CHANGE ---
     } catch (err) {
-      console.error("Submission failed:", err);
-      setSubmitError(
-        err.message || "An unexpected error occurred during submission."
-      );
-      // Don't clear localStorage or timer on error, allow retry
+      console.error("Direct submission failed:", err);
+      setSubmitError(err.message || "An unexpected error occurred.");
     } finally {
-      setIsSubmitting(false); // Re-enable button
+      setIsSubmitting(false);
     }
-  }, [exam_id, resetTimer, isSubmitting]); // Add isSubmitting to dependency array
+  }, [exam_id, resetTimer, isSubmitting]);
 
-  if (authLoading || checkingAuth) {
+  // --- RENDER SECTION ---
+
+  // Loading/Auth States
+  if (authLoading || checkingAuth)
     return (
       <Layout>
-        <p>Checking permissions...</p>
+        <p>Loading...</p>
       </Layout>
     );
-  }
-
-  if (!isAuthorized) {
+  if (!isAuthorized)
     return (
       <Layout>
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
-        <p>You do not have permission to view this exam.</p>
-        <Link
-          to="/exams/"
-          className="text-blue-600 hover:underline mt-4 inline-block"
-        >
-          Back to Exams
-        </Link>
+        <p>Access Denied.</p>
       </Layout>
     );
-  }
-
-  if (!question_data) {
+  if (!question_data)
     return (
       <Layout>
-        <p className="text-red-600">Error: Question data not found.</p>
-        <Link to="/exams/">Back to Exams</Link>
+        <p>Error: Question data not found.</p>
       </Layout>
     );
-  }
+  if (!all_question_paths)
+    console.warn("Warning: all_question_paths missing in pageContext.");
 
+  // Common Tailwind classes
   const answerButtonBaseClasses =
-    "flex items-baseline text-left w-full mb-3 p-3 border rounded transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"; // Added flex items-baseline text-left
+    "flex items-baseline text-left w-full mb-3 p-3 border rounded transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed";
   const navButtonBaseClasses = "px-4 py-2 rounded transition duration-200";
   const navLinkClasses = `${navButtonBaseClasses} bg-gray-600 text-white hover:bg-gray-700`;
   const navDisabledClasses = `${navButtonBaseClasses} text-gray-400 cursor-not-allowed bg-gray-200`;
 
   return (
     <Layout>
-      {/* Top Bar (as before) */}
+      {/* Top Bar: Exam Name, Timer, Progress */}
       <div className="flex items-center mb-5 pb-3 border-b border-gray-200">
         <div className="flex-1 text-left">
           <span className="font-semibold">{exam_name}</span>
@@ -286,160 +281,187 @@ const QuestionPage = ({ pageContext }) => {
         <div className="flex-1 text-center">
           <span>{formattedTime}</span>
         </div>
-
         <div className="flex-1 text-right">
           <span className="text-sm text-gray-600">
             {question_order} / {total_questions_in_exam}
           </span>
         </div>
       </div>
-
-      <div className="flex flex-col md:flex-row gap-5">
-        {/* Left Column */}
+      {/* Main Content Area: Question | Answers/Controls */}
+      {/* Added margin-bottom to prevent overlap with fixed bottom nav */}
+      <div className="flex flex-col md:flex-row gap-5 mb-20">
+        {/* Left Column: Question Text/HTML */}
         <div className="md:w-1/2 md:border-r md:border-gray-200 md:pr-5">
-          <div
-            dangerouslySetInnerHTML={{ __html: question_data.question_html }}
-          />
+          {question_data.question_html && (
+            <div
+              dangerouslySetInnerHTML={{ __html: question_data.question_html }}
+            />
+          )}
         </div>
-        {/* Right Column */}
+        {/* Right Column: Answers, Mark Button, Practice Mode Controls */}
         <div className="md:w-1/2">
+          {/* Mark for Review Button - appearance controlled by 'isMarked' state */}
           <button
             onClick={handleMarkForReview}
             className={clsx(
-              "mb-4 px-3 py-1 border rounded transition duration-150",
+              "mb-4 px-3 py-1 border rounded transition duration-150 text-sm",
               isMarked
-                ? "bg-yellow-100 border-yellow-400"
+                ? "bg-yellow-100 border-yellow-400 hover:bg-yellow-200"
                 : "border-gray-400 hover:bg-gray-100"
             )}
           >
-            {isMarked ? "Unmark Review" : "Mark for Review"}
+            {isMarked ? "Marked for Review" : "Mark for Review"}
           </button>
+          {/* Optional Leading Sentence */}
           {question_data.leading_sentence && (
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-700 mb-4">
               {question_data.leading_sentence}
             </p>
           )}
-
-          {/* Answer Buttons */}
+          {/* Answer Choice Buttons */}
           {["A", "B", "C", "D"].map((choice) => {
             const answerText = question_data[`answer_${choice.toLowerCase()}`];
-            if (!answerText) return null;
-            // Determine button styling based on state and feedback
+            if (!answerText) return null; // Skip if answer doesn't exist
+
             const isCorrectAnswer = choice === question_data.correct_answer;
             const isSelected = selectedAnswer === choice;
-            const isIncorrect = incorrectAnswers.has(choice);
+            const isIncorrect = incorrectAnswers.has(choice); // Strikethrough in practice mode
+            let buttonClasses = [answerButtonBaseClasses];
 
-            let buttonClasses = [answerButtonBaseClasses]; // Start with base + flex classes
-
-            if (isIncorrect) {
-              buttonClasses.push(
-                "bg-red-200 border-red-500 text-red-900 font-semibold line-through"
-              ); // Incorrect selected + strikethrough
-            } else if (isCorrect && isSelected) {
-              buttonClasses.push(
-                "bg-green-200 border-green-500 text-green-900 font-semibold"
-              ); // Correct (whether selected or not)
+            // Apply styling based on selection, correctness (practice mode), etc.
+            if (allow_practice_mode && feedback.checked) {
+              // Practice mode AFTER checking
+              if (isCorrectAnswer)
+                buttonClasses.push(
+                  "bg-green-200 border-green-500 text-green-900 font-semibold"
+                );
+              else if (isSelected)
+                buttonClasses.push(
+                  "bg-red-200 border-red-500 text-red-900 font-semibold line-through"
+                );
+              else buttonClasses.push("border-gray-300 bg-white"); // Unselected, incorrect
             } else {
-              // If not checked yet
-              if (isSelected) {
-                buttonClasses.push("bg-blue-100 border-blue-400"); // Currently selected
-              } else {
-                buttonClasses.push("border-gray-300 hover:bg-gray-50 bg-white"); // Not selected
-              }
+              // Standard mode OR practice mode BEFORE checking
+              if (isSelected) buttonClasses.push("bg-blue-100 border-blue-400");
+              // Highlight selected
+              else
+                buttonClasses.push("border-gray-300 hover:bg-gray-50 bg-white"); // Default unselected
             }
 
             return (
               <button
                 key={choice}
                 onClick={() => handleSelectAnswer(choice)}
-                className={clsx(buttonClasses)} // Use clsx to combine classes
-                disabled={isCorrect}
+                className={clsx(buttonClasses)}
+                // Disable button only if correct answer shown in practice mode
+                disabled={allow_practice_mode && isCorrect}
               >
-                {/* Flexbox applied via answerButtonBaseClasses handles inline */}
                 <strong className="mr-2 flex-shrink-0">{choice}.</strong>
                 <div
-                  className="flex-grow" // Allow text to take remaining space
+                  className="flex-grow"
                   dangerouslySetInnerHTML={{ __html: answerText }}
                 />
               </button>
             );
           })}
-
-          {/* Explanation (as before) */}
+          {/* Practice Mode Specific Controls */}
           {allow_practice_mode && (
-            <div className="mt-5">
+            <div className="mt-5 space-y-3">
+              {/* Check Answer Button */}
+              <button
+                onClick={handleCheck}
+                className={clsx(
+                  `${navButtonBaseClasses} text-white w-full md:w-auto`,
+                  !selectedAnswer ? "bg-gray-400 cursor-not-allowed" : "", // Disabled if no selection
+                  isCorrect ? "bg-green-600 hover:bg-green-700" : "", // Green if correct shown
+                  feedback.correct === false
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-blue-600 hover:bg-blue-700" // Red if incorrect shown, else blue
+                )}
+                // Disable if correct shown, nothing selected, or already checked
+                disabled={isCorrect || !selectedAnswer || feedback.checked}
+              >
+                {checkButtonText}
+              </button>
+
+              {/* Explanation Toggle Button */}
               <button
                 onClick={handleToggleExplanation}
-                className="px-3 py-1 border border-gray-400 rounded hover:bg-gray-100 transition duration-150"
+                className="px-3 py-1 border border-gray-400 rounded hover:bg-gray-100 transition duration-150 text-sm"
               >
                 {showExplanation ? "Hide Explanation" : "Show Explanation"}
               </button>
+              {/* Explanation Content */}
               {showExplanation && (
-                <div className="mt-3 p-3 border-dashed border-gray-400 bg-gray-50 rounded">
-                  <p className="font-semibold">Explanation:</p>
-                  <p className="mb-2">
+                <div className="mt-3 p-3 border-t border-gray-200 bg-gray-50 rounded">
+                  <p className="font-semibold text-gray-800">Explanation:</p>
+                  <p className="mb-2 text-gray-700">
                     {question_data.explanation || "No explanation provided."}
                   </p>
-                  <p className="font-semibold">
+                  <p className="font-semibold text-green-700">
                     Correct Answer: {question_data.correct_answer}
                   </p>
                 </div>
               )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 flex justify-between items-center bg-white px-6 py-3 shadow-md">
+          )}{" "}
+          {/* End Practice Mode Controls */}
+        </div>{" "}
+        {/* End Right Column */}
+      </div>{" "}
+      {/* End Main Content Area */}
+      {/* Bottom Navigation Bar (Fixed) */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 flex justify-between items-center bg-white px-4 sm:px-6 py-3 shadow-md border-t border-gray-200">
         {/* Back Button */}
         {prev_question_path ? (
           <Link to={prev_question_path} className={navLinkClasses}>
             Back
           </Link>
         ) : (
-          <span className={navDisabledClasses}>Back</span>
+          <span className={navDisabledClasses}>
+            Back
+          </span> /* Disabled Back on first question */
         )}
-        {/* Check Answer Button (conditional rendering might be better if not practice mode) */}
-        {allow_practice_mode && (
-          <button
-            onClick={handleCheck}
-            className={clsx(
-              `${navButtonBaseClasses}  text-white `,
-              !selectedAnswer ? "bg-gray-400 cursor-not-allowed" : "",
-              isCorrect ? "bg-green-600 hover:bg-green-700" : "",
-              feedback.correct === false
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-blue-600 hover:bg-blue-700"
-            )}
-            disabled={isCorrect || !selectedAnswer}
-          >
-            {checkButtonText}
-          </button>
-        )}
-        {/* Spacer if check button isn't shown */}
-        {!allow_practice_mode && <div></div>}
-        {/* Next/Finish Button */}
+
+        {/* Navigation Modal Trigger Button */}
+        <button
+          onClick={handleOpenModal}
+          className="px-3 sm:px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-900 transition duration-200 text-xs sm:text-sm"
+          aria-label="Open question navigation"
+        >
+          Question {question_order} of {total_questions_in_exam}
+        </button>
+
+        {/* Next / Review Button */}
         {next_question_path ? (
           <Link to={next_question_path} className={navLinkClasses}>
             Next
           </Link>
-        ) : question_order === total_questions_in_exam ? (
-          // Use the button with the cleanup handler
-          <button
-            onClick={handleFinishExam}
-            className={`${navButtonBaseClasses} bg-green-600 text-white hover:bg-green-700`}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Submitting..." : "Finish Exam"}
-          </button>
         ) : (
-          <span className={navDisabledClasses}>Next</span>
+          /* On last question, show Review button instead of Next */
+          <button
+            onClick={navigateToReviewPage}
+            className={`${navButtonBaseClasses} bg-blue-600 text-white hover:bg-blue-700`}
+          >
+            Review
+          </button>
         )}
       </div>
-      {/* Submission Error Display */}
+      {/* --- Use the imported Modal Component --- */}
+      {/* Pass all necessary props */}
+      <NavigationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        examName={exam_name}
+        totalQuestions={total_questions_in_exam}
+        currentQuestionOrder={question_order}
+        questionStatuses={allQuestionStatuses} // Pass the state holding LS data for all questions
+        onNavigateToQuestion={navigateToQuestion}
+        onNavigateToReview={navigateToReviewPage}
+      />
+      {/* Submission Error Display (Only for direct submit fallback) */}
       {submitError && (
-        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md z-20 mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded shadow-lg">
           <strong>Submission Error:</strong> {submitError}
         </div>
       )}

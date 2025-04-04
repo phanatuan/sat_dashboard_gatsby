@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { navigate } from "gatsby";
+import { Link, navigate } from "gatsby";
 import { supabase } from "../../supabaseClient";
 import Layout from "../../components/Layout";
 import QuestionReviewModal from "../../components/QuestionReviewModal";
@@ -199,6 +199,15 @@ const ExamResultPage = (props) => {
               <div className="text-sm text-gray-600">Incorrect Answers</div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-6 text-center">
+          <Link
+            to="/exams/" // Link to your main exams listing page
+            className="inline-flex items-center px-6 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+          >
+            Back to Exams List
+          </Link>
         </div>
 
         {/* Questions Table */}

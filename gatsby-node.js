@@ -8,7 +8,7 @@ require("dotenv").config({
   path: `.env.${process.env.NODE_ENV}`,
 });
 
-exports.createPages = async ({ graphql, actions, reporter }) => {
+exports.createPages = async ({ actions, reporter }) => {
   const { createPage } = actions;
 
   // --- 1. Initialize Supabase Admin Client ---
@@ -18,6 +18,7 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   );
 
   reporter.info("--- Starting Page Creation Process ---");
+  // (Keep existing Supabase connection logs)
   reporter.info(
     `Supabase URL: ${process.env.GATSBY_SUPABASE_URL ? "Set" : "NOT SET"}`
   );
@@ -36,14 +37,13 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     );
 
   if (examsError) {
-    reporter.error("!!! Error fetching exams from Supabase:", examsError); // More prominent error log
+    reporter.error("!!! Error fetching exams from Supabase:", examsError);
     reporter.panicOnBuild("Aborting build due to error fetching exams.");
     return;
   }
   reporter.info(`Fetched ${examsData ? examsData.length : 0} exams.`);
-  reporter.info(
-    "Fetching exam_questions data (with nested questions) from Supabase..."
-  );
+
+  reporter.info("Fetching exam_questions data (with nested questions)...");
   const { data: examQuestionsData, error: examQuestionsError } =
     await supabaseAdmin
       .from("exam_questions")
@@ -67,7 +67,7 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     `
       )
       .order("question_order", { ascending: true })
-      .range(0, 50000); // Increased range just in case
+      .range(0, 50000); // Consider if pagination is needed for very large datasets
 
   if (examQuestionsError) {
     reporter.error(
@@ -89,17 +89,27 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
   reporter.info("Processing and grouping fetched data...");
   const examsWithQuestions = {};
   examsData.forEach((exam) => {
-    examsWithQuestions[exam.exam_id] = { ...exam, questions: [] };
+    // Basic validation
+    if (exam.exam_id) {
+      examsWithQuestions[exam.exam_id] = { ...exam, questions: [] };
+    } else {
+      reporter.warn(`Exam missing exam_id:`, exam);
+    }
   });
 
   let processedCount = 0;
   let orphanedCount = 0;
   examQuestionsData.forEach((eq) => {
-    if (examsWithQuestions[eq.exam_id] && eq.questions) {
-      // --- 4. DECODE the question data HERE ---
+    if (
+      eq.exam_id && // Check if exam_id exists
+      examsWithQuestions[eq.exam_id] &&
+      eq.questions && // Check if nested question data exists
+      typeof eq.question_order === "number" // Check if question_order is valid
+    ) {
+      // Decode question data
       const originalQuestion = eq.questions;
       const decodedQuestion = {
-        ...originalQuestion, // Keep non-text fields (question_id, correct_answer, domain, skill)
+        ...originalQuestion,
         question_html: decodeMojibake(originalQuestion.question_html),
         leading_sentence: decodeMojibake(originalQuestion.leading_sentence),
         answer_a: decodeMojibake(originalQuestion.answer_a),
@@ -108,7 +118,6 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
         answer_d: decodeMojibake(originalQuestion.answer_d),
         explanation: decodeMojibake(originalQuestion.explanation),
       };
-      // ------------------------------------------
 
       examsWithQuestions[eq.exam_id].questions.push({
         ...decodedQuestion,
@@ -116,15 +125,12 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
       });
       processedCount++;
     } else {
-      // --- DEBUG: More specific orphan warning ---
       reporter.warn(
-        `Orphaned/incomplete exam_question: exam_id=${
+        `Orphaned/incomplete exam_question relation: exam_id=${
           eq.exam_id
-        } (Exists in examsData? ${!!examsWithQuestions[
-          eq.exam_id
-        ]}), question_order=${
+        }, order=${
           eq.question_order
-        }, Has nested questions data? ${!!eq.questions}`
+        }, has nested questions? ${!!eq.questions}, order type? ${typeof eq.question_order}`
       );
       orphanedCount++;
     }
@@ -133,43 +139,66 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
     `Processed ${processedCount} relationships successfully, ${orphanedCount} orphaned/incomplete.`
   );
 
-  // Ensure sorting (redundant but safe)
+  // Ensure sorting (important for prev/next logic)
   Object.values(examsWithQuestions).forEach((exam) => {
     exam.questions.sort((a, b) => a.question_order - b.question_order);
   });
-
   reporter.info("Data processing complete.");
 
-  // --- 5. Create Individual Question Pages ---
-  reporter.info("Starting creation of individual question pages...");
+  // --- 4. Define Page Templates ---
   const questionPageTemplate = path.resolve("./src/templates/question-page.js");
+  const examReviewPageTemplate = path.resolve(
+    "./src/templates/exam-review-page.js"
+  ); // <-- Define review template path
+  reporter.info("Defined page templates.");
+
+  // --- 5. Create Individual Question and Review Pages ---
+  reporter.info("Starting creation of individual question and review pages...");
   let questionPageCount = 0;
-  let specificPageCreated = false; // Flag for our target page
+  let reviewPageCount = 0;
 
   Object.values(examsWithQuestions).forEach((exam) => {
     const questions = exam.questions;
     const totalQuestions = questions.length;
 
     if (totalQuestions === 0) {
-      // reporter.warn( // Keep this less verbose unless debugging specific empty exams
-      //   `Exam "${exam.exam_name}" (ID: ${exam.exam_id}) has no questions assigned. Skipping.`
-      // );
-      return;
+      reporter.warn(
+        `Exam "${exam.exam_name}" (ID: ${exam.exam_id}) has no valid questions assigned after processing. Skipping page creation for this exam.`
+      );
+      return; // Skip exams with no valid questions
     }
 
+    // --- 5a. Generate All Question Paths for this Exam ---
+    const allQuestionPaths = {};
+    questions.forEach((q) => {
+      // Use the path structure consistent with React components
+      allQuestionPaths[
+        q.question_order
+      ] = `/exam/${exam.exam_id}/question/${q.question_order}/`;
+    });
+    // reporter.info(`Generated ${Object.keys(allQuestionPaths).length} paths for exam ${exam.exam_id}`); // Optional debug log
+
+    // --- 5b. Create Individual Question Pages ---
     questions.forEach((question, index) => {
       const currentOrder = question.question_order;
-      const pagePath = `/exams/${exam.exam_id}/questions/${currentOrder}/`;
+      const pagePath = allQuestionPaths[currentOrder]; // Use the generated path
 
-      // Determine previous and next question paths
+      if (!pagePath) {
+        reporter.error(
+          `!!! Could not generate path for exam ${exam.exam_id}, question order ${currentOrder}. Skipping question page.`
+        );
+        return; // Skip if path generation failed
+      }
+
+      // Determine previous and next question paths using the generated map
       const prevQuestion = index > 0 ? questions[index - 1] : null;
       const nextQuestion =
         index < totalQuestions - 1 ? questions[index + 1] : null;
       const prevPath = prevQuestion
-        ? `/exams/${exam.exam_id}/questions/${prevQuestion.question_order}/`
+        ? allQuestionPaths[prevQuestion.question_order]
         : null;
       const nextPath = nextQuestion
-        ? `/exams/${exam.exam_id}/questions/${nextQuestion.question_order}/`
+        ? allQuestionPaths[nextQuestion.question_order]
         : null;
 
       try {
@@ -179,36 +208,52 @@ exports.createPages = async ({ graphql, actions, reporter }) => {
           context: {
             exam_id: exam.exam_id,
             exam_name: exam.exam_name,
-            allow_practice_mode: exam.allow_practice_mode,
-            question_data: question, // Pass the whole object
+            allow_practice_mode: exam.allow_practice_mode || false, // Default if null/undefined
+            question_data: question,
             question_order: currentOrder,
             total_questions_in_exam: totalQuestions,
             prev_question_path: prevPath,
             next_question_path: nextPath,
+            all_question_paths: allQuestionPaths, // <-- Pass the map here
           },
         });
         questionPageCount++;
       } catch (error) {
         reporter.error(
-          `!!! FAILED calling createPage for path: ${pagePath}`,
+          `!!! FAILED calling createPage for question path: ${pagePath}`,
           error
         );
       }
-    });
-  });
+    }); // End question loop
+
+    // --- 5c. Create Exam Review Page ---
+    const reviewPagePath = `/exam-review/${exam.exam_id}/`;
+    try {
+      createPage({
+        path: reviewPagePath,
+        component: examReviewPageTemplate,
+        context: {
+          exam_id: exam.exam_id,
+          exam_name: exam.exam_name,
+          total_questions_in_exam: totalQuestions,
+          all_question_paths: allQuestionPaths, // <-- Pass the map here too
+        },
+      });
+      reviewPageCount++;
+    } catch (error) {
+      reporter.error(
+        `!!! FAILED calling createPage for review path: ${reviewPagePath}`,
+        error
+      );
+    }
+  }); // End exam loop
 
   reporter.info(
     `Total question pages created (attempted): ${questionPageCount}`
   );
-  // --- DEBUG: Final check if the specific page was processed for creation ---
-  if (specificPageCreated) {
-    reporter.info(
-      `--- DEBUG: The createPage function was successfully CALLED for /exams/e514367/questions/23/.`
-    );
-  } else {
-    reporter.warn(
-      `--- DEBUG: The createPage function was NEVER CALLED for /exams/e514367/questions/23/. Check processing logs above.`
-    );
-  }
+  reporter.info(`Total review pages created (attempted): ${reviewPageCount}`);
   reporter.info("--- Finished Page Creation Process ---");
 }; // End of createPages
+
+// --- Optional: onCreatePage if needed ---
+// exports.onCreatePage = async ({ page, actions }) => { ... }
