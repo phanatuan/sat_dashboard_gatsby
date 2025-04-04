@@ -19,6 +19,7 @@ const mojibakeReplacements = [
   ['"”', ""],
   ["Â©", "©"],
   ["—", " - "],
+  ["", ""],
 ];
 
 /**
@@ -40,9 +41,7 @@ const decodeMojibake = (inputText) => {
   return cleanedText;
 };
 
-// Export the function using module.exports (CommonJS)
 module.exports = {
-  // <--- Add this export statement at the end
   decodeMojibake,
 };
 

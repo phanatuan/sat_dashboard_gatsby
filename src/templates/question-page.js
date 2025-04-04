@@ -6,7 +6,7 @@ import { supabase } from "../supabaseClient";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useExamTimer } from "../context/ExamTimerContext";
-// Removed FontAwesome imports as they are now in NavigationModal.js
+import QuestionEditModal from "../components/QuestionEditModal"; // *** IMPORT NEW MODAL ***
 
 // --- Import the extracted modal component ---
 import NavigationModal from "../components/NavigationModal"; // Adjust path if needed
@@ -70,12 +70,19 @@ const QuestionPage = ({ pageContext }) => {
   const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNavModalOpen, setIsNavModalOpen] = useState(false);
+
   // 'allQuestionStatuses' holds the { answers: {}, marked: {} } object for ALL questions, loaded from LS
   const [allQuestionStatuses, setAllQuestionStatuses] = useState({
     answers: {},
     marked: {},
   });
+
+  // *** STATE for Edit Modal ***
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSavingQuestion, setIsSavingQuestion] = useState(false);
+  const [saveQuestionError, setSaveQuestionError] = useState(null);
+  const [saveQuestionSuccess, setSaveQuestionSuccess] = useState(false); // Optional success message
 
   // --- Effects ---
   // Authorization Check Effect
@@ -185,11 +192,81 @@ const QuestionPage = ({ pageContext }) => {
   };
 
   // Open the navigation modal
-  const handleOpenModal = () => {
+  const handleOpenNavModal = () => {
     if (typeof window === "undefined") return;
     // Load the latest state from LS when opening to ensure modal is up-to-date
     setAllQuestionStatuses(loadExamStateFromLocalStorage(exam_id));
-    setIsModalOpen(true);
+    setIsNavModalOpen(true);
+  };
+
+  const handleOpenEditModal = () => {
+    setSaveQuestionError(null); // Clear previous errors
+    setSaveQuestionSuccess(false); // Reset success message
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    // Optionally clear errors/success messages when closing manually
+    // setSaveQuestionError(null);
+    // setSaveQuestionSuccess(false);
+  };
+
+  const handleSaveQuestion = async (questionId, updatedData) => {
+    if (!isAdmin) {
+      setSaveQuestionError("Permission denied.");
+      return;
+    }
+    if (!questionId) {
+      setSaveQuestionError("Cannot save: Question ID is missing.");
+      return;
+    }
+
+    setIsSavingQuestion(true);
+    setSaveQuestionError(null);
+    setSaveQuestionSuccess(false);
+
+    try {
+      // Filter out any undefined/null values if necessary, or let Supabase handle it
+      const dataToUpdate = { ...updatedData };
+
+      // Ensure correct_answer is uppercase if your schema requires it
+      if (dataToUpdate.correct_answer) {
+        dataToUpdate.correct_answer = dataToUpdate.correct_answer.toUpperCase();
+      }
+
+      console.log(
+        "Attempting to update question:",
+        questionId,
+        "with data:",
+        dataToUpdate
+      );
+
+      const { error } = await supabase
+        .from("questions")
+        .update(dataToUpdate)
+        .eq("question_id", questionId);
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw new Error(error.message || "Failed to update question.");
+      }
+
+      console.log("Question updated successfully!");
+      setSaveQuestionSuccess(true);
+      setIsEditModalOpen(false); // Close modal on success
+
+      // Optional: Add a small delay before resetting success message
+      setTimeout(() => setSaveQuestionSuccess(false), 3000);
+    } catch (err) {
+      console.error("Error saving question:", err);
+      setSaveQuestionError(
+        err.message || "An unexpected error occurred during save."
+      );
+      // Keep the modal open so the user can see the error
+    } finally {
+      setIsSavingQuestion(false);
+    }
   };
 
   // Navigate to a specific question from the modal
@@ -197,7 +274,7 @@ const QuestionPage = ({ pageContext }) => {
     const path = all_question_paths?.[qNum]; // Use paths from gatsby-node context
     if (path) {
       navigate(path);
-      setIsModalOpen(false); // Close modal on navigation
+      setIsNavModalOpen(false); // Close modal on navigation
     } else {
       console.error(`Path for question ${qNum} not found.`);
     }
@@ -206,7 +283,7 @@ const QuestionPage = ({ pageContext }) => {
   // Navigate to the main review page
   const navigateToReviewPage = () => {
     navigate(`/exam-review/${exam_id}/`);
-    setIsModalOpen(false); // Close modal on navigation
+    setIsNavModalOpen(false); // Close modal on navigation
   };
 
   // --- Direct Finish (Fallback - submission logic primarily on review page) ---
@@ -300,18 +377,28 @@ const QuestionPage = ({ pageContext }) => {
         </div>
         {/* Right Column: Answers, Mark Button, Practice Mode Controls */}
         <div className="md:w-1/2">
-          {/* Mark for Review Button - appearance controlled by 'isMarked' state */}
-          <button
-            onClick={handleMarkForReview}
-            className={clsx(
-              "mb-4 px-3 py-1 border rounded transition duration-150 text-sm",
-              isMarked
-                ? "bg-yellow-100 border-yellow-400 hover:bg-yellow-200"
-                : "border-gray-400 hover:bg-gray-100"
+          <div className="flex items-center mb-4">
+            {/* Flex container for Mark & Edit buttons */}
+            <button
+              onClick={handleMarkForReview}
+              className={clsx(
+                "mb-4 px-3 py-1 border rounded transition duration-150 text-sm",
+                isMarked
+                  ? "bg-yellow-100 border-yellow-400 hover:bg-yellow-200"
+                  : "border-gray-400 hover:bg-gray-100"
+              )}
+            >
+              {isMarked ? "Marked for Review" : "Mark for Review"}
+            </button>
+            {isAdmin && (
+              <button
+                onClick={handleOpenEditModal}
+                className="ml-3 px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 transition duration-150 text-sm"
+              >
+                Edit Question
+              </button>
             )}
-          >
-            {isMarked ? "Marked for Review" : "Mark for Review"}
-          </button>
+          </div>
           {/* Optional Leading Sentence */}
           {question_data.leading_sentence && (
             <p className="text-gray-700 mb-4">
@@ -366,9 +453,7 @@ const QuestionPage = ({ pageContext }) => {
           })}
           {/* Practice Mode Specific Controls */}
           {allow_practice_mode && (
-            // Use Flexbox for better control: column layout, align items left, consistent gap
             <div className="mt-5 flex flex-col items-start gap-3">
-              {/* Check Answer Button */}
               <button
                 onClick={handleCheck}
                 className={clsx(
@@ -424,11 +509,11 @@ const QuestionPage = ({ pageContext }) => {
                 </div>
               )}
             </div>
-          )}{" "}
-          {/* End Practice Mode Controls */}{" "}
-        </div>{" "}
+          )}
+          {/* End Practice Mode Controls */}
+        </div>
         {/* End Right Column */}
-      </div>{" "}
+      </div>
       {/* End Main Content Area */}
       {/* Bottom Navigation Bar (Fixed) */}
       <div className="fixed bottom-0 left-0 right-0 z-10 flex justify-between items-center bg-white px-4 sm:px-6 py-3 shadow-md border-t border-gray-200">
@@ -445,7 +530,7 @@ const QuestionPage = ({ pageContext }) => {
 
         {/* Navigation Modal Trigger Button */}
         <button
-          onClick={handleOpenModal}
+          onClick={handleOpenNavModal}
           className="px-3 sm:px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-900 transition duration-200 text-xs sm:text-sm"
           aria-label="Open question navigation"
         >
@@ -470,8 +555,8 @@ const QuestionPage = ({ pageContext }) => {
       {/* --- Use the imported Modal Component --- */}
       {/* Pass all necessary props */}
       <NavigationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isNavModalOpen}
+        onClose={() => setIsNavModalOpen(false)}
         examName={exam_name}
         totalQuestions={total_questions_in_exam}
         currentQuestionOrder={question_order}
@@ -479,6 +564,19 @@ const QuestionPage = ({ pageContext }) => {
         onNavigateToQuestion={navigateToQuestion}
         onNavigateToReview={navigateToReviewPage}
       />
+
+      {/* --- *** EDIT QUESTION MODAL *** --- */}
+      {isAdmin &&
+        question_data && ( // Ensure data is loaded and user is admin
+          <QuestionEditModal
+            isOpen={isEditModalOpen}
+            onClose={handleCloseEditModal}
+            onSave={handleSaveQuestion} // Pass the save handler
+            initialQuestionData={question_data} // Pass the current question's data
+            isSaving={isSavingQuestion} // Pass saving state for button disable/text
+          />
+        )}
+
       {/* Submission Error Display (Only for direct submit fallback) */}
       {submitError && (
         <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md z-20 mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded shadow-lg">

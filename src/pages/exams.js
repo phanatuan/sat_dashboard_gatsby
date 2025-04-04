@@ -189,7 +189,6 @@ const ExamsPage = () => {
   // --- Render Logic ---
   return (
     <Layout maxWidth="max-w-5xl">
-      {" "}
       {/* Using wider layout */}
       <h1 className="text-2xl sm:text-3xl font-bold mb-6">Available Exams</h1>
       {/* --- Search and Filter UI --- */}
@@ -395,7 +394,6 @@ const ExamsPage = () => {
         </div>
       )}
       {/* --- Pagination --- */}
-      {/* Show pagination only if NOT loading AND there is more than one page */}
       {!isFetchingExams && totalPages > 1 && (
         <div className="flex justify-center flex-wrap gap-2 mt-8 pb-4">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(
