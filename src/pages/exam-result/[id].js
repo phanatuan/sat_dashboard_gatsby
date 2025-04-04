@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import Layout from "../../components/Layout";
 import QuestionReviewModal from "../../components/QuestionReviewModal";
 import { useAuth } from "../../context/AuthContext";
+import { decodeMojibake } from "../../utils/decodeHTML";
 import clsx from "clsx";
 
 const ExamResultPage = (props) => {
@@ -78,6 +79,19 @@ const ExamResultPage = (props) => {
           const questionDetails = eq.questions;
           const userAnswer = result.user_answers?.[eq.question_order] || null; // Get user answer from JSONB
           const isCorrect = userAnswer === questionDetails.correct_answer;
+
+          // --- 2. APPLY DECODING HERE ---
+          const decodedData = {
+            ...questionDetails, // Keep original non-text fields (id, correct_answer)
+            question_html: decodeMojibake(questionDetails.question_html),
+            leading_sentence: decodeMojibake(questionDetails.leading_sentence),
+            answer_a: decodeMojibake(questionDetails.answer_a),
+            answer_b: decodeMojibake(questionDetails.answer_b),
+            answer_c: decodeMojibake(questionDetails.answer_c),
+            answer_d: decodeMojibake(questionDetails.answer_d),
+            explanation: decodeMojibake(questionDetails.explanation),
+          };
+          // ------------------------------
 
           return {
             ...questionDetails, // Spread all question fields (question_id, html, options, etc.)
