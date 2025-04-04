@@ -378,11 +378,11 @@ const QuestionPage = ({ pageContext }) => {
         {/* Right Column: Answers, Mark Button, Practice Mode Controls */}
         <div className="md:w-1/2">
           <div className="flex items-center mb-4">
-            {/* Flex container for Mark & Edit buttons */}
             <button
               onClick={handleMarkForReview}
               className={clsx(
-                "mb-4 px-3 py-1 border rounded transition duration-150 text-sm",
+                // REMOVED mb-4 from here
+                "px-3 py-1 border rounded transition duration-150 text-sm",
                 isMarked
                   ? "bg-yellow-100 border-yellow-400 hover:bg-yellow-200"
                   : "border-gray-400 hover:bg-gray-100"
@@ -393,12 +393,14 @@ const QuestionPage = ({ pageContext }) => {
             {isAdmin && (
               <button
                 onClick={handleOpenEditModal}
+                // ml-3 provides spacing between buttons
                 className="ml-3 px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 transition duration-150 text-sm"
               >
                 Edit Question
               </button>
             )}
           </div>
+
           {/* Optional Leading Sentence */}
           {question_data.leading_sentence && (
             <p className="text-gray-700 mb-4">
