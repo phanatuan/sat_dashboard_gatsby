@@ -219,16 +219,14 @@ const QuestionPage = ({ pageContext }) => {
       localStorage.removeItem(storageKey); // Clear answers for this exam
       resetTimer(exam_id); // Reset and clear the timer state
 
-      // Navigate to a results page (pass the result ID or exam ID)
-      // Option 1: Navigate using result ID (if you create a specific page for one result)
-      // if (data?.resultId) {
-      //   navigate(`/exam-result/${data.resultId}/`);
-      // } else {
-      navigate("/exams/"); // Fallback
-      // }
-
-      // Option 2: Navigate to a general results overview for that exam
-      // navigate(`/exam-results/${exam_id}/`);
+      // --- NAVIGATION CHANGE ---
+      if (data?.resultId) {
+        navigate(`/exam-result/${data.resultId}/`);
+      } else {
+        console.error("Submission successful but no resultId received.");
+        navigate("/exams/");
+      }
+      // --- END NAVIGATION CHANGE ---
     } catch (err) {
       console.error("Submission failed:", err);
       setSubmitError(

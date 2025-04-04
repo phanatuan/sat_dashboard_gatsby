@@ -113,6 +113,7 @@ serve(async (req) => {
         correct_count: correctCount,
         total_questions: totalQuestions,
         user_answers: userAnswers, // Store the submitted answers
+        submitted_at: new Date().toISOString(),
       })
       .select("id") // Select the ID of the newly created record
       .single(); // Expect only one record back
