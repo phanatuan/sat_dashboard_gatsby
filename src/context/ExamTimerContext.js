@@ -8,7 +8,17 @@ import React, {
   useCallback,
 } from "react";
 
-const ExamTimerContext = createContext();
+// Check if running in a browser environment
+const isBrowser = typeof window !== "undefined";
+
+const ExamTimerContext = createContext({
+  // Provide a default shape to prevent destructuring errors even if Provider fails
+  elapsedTime: 0,
+  formattedTime: "00:00:00",
+  resetTimer: () => {
+    console.warn("Reset timer called before Provider initialized");
+  },
+});
 
 // Helper function for localStorage keys
 const getStartTimeKey = (examId) => `examStartTime_${examId}`;
@@ -17,10 +27,15 @@ export const ExamTimerProvider = ({ children, currentExamId }) => {
   const [elapsedTime, setElapsedTime] = useState(0); // Time in seconds
   const intervalRef = useRef(null); // To hold interval ID
   const examIdRef = useRef(currentExamId); // Keep track of the active exam
+  const [isClientInitialized, setIsClientInitialized] = useState(false); // Track client hydration
 
   // Function to start or resume the timer
   const startOrResumeTimer = useCallback((examId) => {
-    if (!examId) return; // Don't start without an ID
+    // ----> GUARD: Only run localStorage logic in browser <----
+    if (!isBrowser || !examId) {
+      console.log("Skipping timer start/resume (SSR or no examId)");
+      return;
+    }
 
     const startTimeKey = getStartTimeKey(examId);
     let startTime = localStorage.getItem(startTimeKey);
@@ -47,6 +62,12 @@ export const ExamTimerProvider = ({ children, currentExamId }) => {
 
     // Start the interval to update time every second
     intervalRef.current = setInterval(() => {
+      if (!isBrowser) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        return;
+      }
+
       const currentStartTime = localStorage.getItem(startTimeKey); // Re-read in case it was cleared
       if (currentStartTime) {
         setElapsedTime(
@@ -63,6 +84,9 @@ export const ExamTimerProvider = ({ children, currentExamId }) => {
 
   // Effect to start timer when the provider mounts or examId changes
   useEffect(() => {
+    // Mark that client has initialized
+    setIsClientInitialized(true);
+
     // If there's a currentExamId passed, ensure the timer is running for it
     if (currentExamId) {
       // If the exam ID changed, potentially reset timer for the new exam
@@ -105,6 +129,9 @@ export const ExamTimerProvider = ({ children, currentExamId }) => {
 
   // Function to stop and reset the timer (e.g., on finish)
   const resetTimer = useCallback((examId) => {
+    // ----> GUARD: Only run localStorage logic in browser <----
+    if (!isBrowser || !examId) return;
+
     if (!examId) return;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -130,14 +157,15 @@ export const ExamTimerProvider = ({ children, currentExamId }) => {
     return `${hours}:${minutes}:${seconds}`;
   };
 
+  // Provide the state, ensuring formattedTime is always a string
+  const value = {
+    elapsedTime,
+    formattedTime: formatTime(elapsedTime),
+    resetTimer,
+  };
+
   return (
-    <ExamTimerContext.Provider
-      value={{
-        elapsedTime,
-        formattedTime: formatTime(elapsedTime),
-        resetTimer,
-      }}
-    >
+    <ExamTimerContext.Provider value={value}>
       {children}
     </ExamTimerContext.Provider>
   );

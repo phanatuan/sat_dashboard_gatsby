@@ -188,11 +188,10 @@ const QuestionPage = ({ pageContext }) => {
       // 1. Get answers from localStorage
       const storedAnswersRaw = localStorage.getItem(storageKey);
       const userAnswers = storedAnswersRaw ? JSON.parse(storedAnswersRaw) : {};
+      console.log("User answers:", userAnswers);
 
       if (Object.keys(userAnswers).length === 0) {
-        // Optional: Add confirmation if no answers are saved?
         console.warn("No answers saved in localStorage to submit.");
-        // Maybe still allow submission if intended? Or show warning.
       }
 
       // 2. Call the Edge Function
