@@ -1,6 +1,33 @@
 // src/components/QuestionEditModal.js
 import React, { useState, useEffect } from "react";
+import ReactQuill from "react-quill"; // Import ReactQuill
 import { supabase } from "../supabaseClient"; // Import supabase client
+
+// Define Quill modules and formats (customize as needed)
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline", "strike", "blockquote"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["link", "image"], // Add image button
+    [{ align: [] }],
+    ["clean"],
+  ],
+};
+
+const quillFormats = [
+  "header",
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "blockquote",
+  "list",
+  "bullet",
+  "link",
+  "image", // Add image format
+  "align",
+];
 
 const QuestionEditModal = ({
   isOpen,
@@ -40,6 +67,11 @@ const QuestionEditModal = ({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Specific handler for ReactQuill onChange
+  const handleQuillChange = (content) => {
+    setFormData((prev) => ({ ...prev, question_html: content }));
   };
 
   const handleSaveClick = async () => {
@@ -94,14 +126,34 @@ const QuestionEditModal = ({
             >
               Question HTML
             </label>
-            <textarea
-              id="question_html"
-              name="question_html"
-              rows="6"
+            {/* Replace textarea with ReactQuill */}
+            <ReactQuill
+              theme="snow" // Use the "snow" theme (includes toolbar)
               value={formData.question_html || ""}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+              onChange={handleQuillChange}
+              modules={quillModules}
+              formats={quillFormats}
+              className="bg-white" // Add bg-white if needed for theme contrast
+              // Add style={{ height: '200px', marginBottom: '40px' }} or similar if needed
+              // The container will grow, but you might need to adjust layout
             />
+            {/* Add some space below the editor if toolbar overlaps */}
+            <div className="mt-10"></div>
+            {/* Raw HTML Preview Area */}
+            <div className="mt-4">
+              <label
+                htmlFor="question_html_raw"
+                className="block text-xs font-medium text-gray-600 mb-1"
+              >
+                Raw HTML Preview (Read-only)
+              </label>
+              <textarea
+                id="question_html_raw"
+                readOnly
+                value={formData.question_html || ""}
+                className="w-full p-2 border border-gray-200 rounded bg-gray-50 text-xs font-mono h-24 resize-none" // Use monospace font, fixed height
+              />
+            </div>
           </div>
           {/* Leading Sentence */}
           <div className="mb-4">

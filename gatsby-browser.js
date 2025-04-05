@@ -3,6 +3,7 @@ import React from "react";
 import { AuthProvider } from "./src/context/AuthContext";
 import { ExamTimerProvider } from "./src/context/ExamTimerContext";
 import "./src/styles/global.css"; // Keep existing CSS import
+import "react-quill/dist/quill.snow.css"; // Add Quill's Snow theme CSS
 
 export const wrapPageElement = ({ element, props }) => {
   // Attempt to get the exam_id from the page's context
