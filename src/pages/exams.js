@@ -123,7 +123,7 @@ const ExamsPage = () => {
   ) {
     return (
       <Layout maxWidth="max-w-5xl">
-        <p>Loading User Data...</p>
+        <p>Đang tải dữ liệu người dùng...</p>
       </Layout>
     );
   }
@@ -139,17 +139,17 @@ const ExamsPage = () => {
           {" "}
           {/* Added margin-top for spacing */}
           <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Access Restricted
+            Truy cập bị hạn chế
           </h2>
           <p className="mb-6 text-gray-600">
-            This page requires you to be logged in. Please sign up or log in to
-            access the exams.
+            Trang này yêu cầu bạn phải đăng nhập. Vui lòng đăng ký hoặc đăng
+            nhập để truy cập các bài thi.
           </p>
           <Link
             to="/login/"
             className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
           >
-            Sign Up / Log In
+            Đăng ký / Đăng nhập
           </Link>
         </div>
       </Layout>
@@ -210,7 +210,9 @@ const ExamsPage = () => {
   return (
     <Layout maxWidth="max-w-5xl">
       {/* Using wider layout */}
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Available Exams</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">
+        Các bài thi hiện có
+      </h1>
       {/* --- Search and Filter UI --- */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
         {/* Search Input */}
@@ -231,17 +233,17 @@ const ExamsPage = () => {
           </div>
           <input
             type="text"
-            placeholder="Search exams..."
+            placeholder="Tìm kiếm bài thi..."
             value={searchTerm}
             onChange={handleSearchChange}
             className="shadow appearance-none border rounded w-full py-2 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            aria-label="Search exams by name"
+            aria-label="Tìm kiếm bài thi theo tên"
           />
           {searchTerm && (
             <button
               className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 hover:text-gray-900 focus:outline-none"
               onClick={handleClearSearch}
-              aria-label="Clear search"
+              aria-label="Xóa tìm kiếm"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 {" "}
@@ -260,11 +262,11 @@ const ExamsPage = () => {
             value={selectedSection}
             onChange={handleSectionChange}
             className="block appearance-none w-full sm:w-40 md:w-48 bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
-            aria-label="Filter by section"
+            aria-label="Lọc theo phần thi"
           >
-            <option value="All">All Sections</option>
-            <option value="English">English</option>
-            <option value="Math">Math</option>
+            <option value="All">Tất cả các phần</option>
+            <option value="English">Tiếng Anh</option>
+            <option value="Math">Toán</option>
             {/* Add other sections if needed */}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -283,9 +285,9 @@ const ExamsPage = () => {
             value={selectedCategory}
             onChange={handleCategoryChange}
             className="block appearance-none w-full sm:w-40 md:w-48 bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
-            aria-label="Filter by category"
+            aria-label="Lọc theo danh mục"
           >
-            <option value="All">All Categories</option>
+            <option value="All">Tất cả danh mục</option>
             {uniqueCategories.map((category) => (
               <option key={category} value={category}>
                 {category}
@@ -308,14 +310,14 @@ const ExamsPage = () => {
             htmlFor="examsPerPage"
             className="flex-shrink-0 text-sm text-gray-700"
           >
-            Show:
+            Hiển thị:
           </label>
           <select
             id="examsPerPage"
             value={examsPerPage}
             onChange={handleExamsPerPageChange}
             className="text-sm shadow-sm appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            aria-label="Select number of exams per page"
+            aria-label="Chọn số lượng bài thi mỗi trang"
           >
             <option value="10">10</option>
             <option value="20">20</option>
@@ -324,9 +326,19 @@ const ExamsPage = () => {
         </div>
       </div>
       {/* --- Display Fetch Error --- */}
+      {/* --- Display Fetch Error --- */}
       {fetchError && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {fetchError}
+          {
+            fetchError.startsWith("Error loading exams:") // Check if it's the specific error we modified
+              ? `Lỗi tải bài thi: ${fetchError.substring(
+                  "Error loading exams:".length
+                )}`
+              : fetchError ===
+                "Failed to load exams. Please refresh or try again later."
+              ? "Không thể tải bài thi. Vui lòng làm mới hoặc thử lại sau."
+              : fetchError /* Keep other potential errors as is */
+          }
         </div>
       )}
       {/* --- Exam Table or Empty State --- */}
@@ -335,9 +347,9 @@ const ExamsPage = () => {
         <p className="text-center text-gray-500 mt-6">
           {userExams.length === 0 && initialLoadComplete.current // Distinguish between no access and no matches
             ? isAdmin
-              ? "No exams found in the system."
-              : "You currently don't have access to any exams."
-            : "No exams found matching your criteria."}
+              ? "Không tìm thấy bài thi nào trong hệ thống."
+              : "Bạn hiện không có quyền truy cập vào bài thi nào."
+            : "Không tìm thấy bài thi nào phù hợp với tiêu chí của bạn."}
         </p>
       )}
       {/* Render table only if NOT loading, NO error, AND there ARE exams to show on the current page */}
@@ -350,31 +362,31 @@ const ExamsPage = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Name (Exam)
+                  Tên (Bài thi)
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Section
+                  Phần thi
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Category
+                  Danh mục
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Questions
+                  Số câu hỏi
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Action
+                  Hành động
                 </th>
               </tr>
             </thead>
@@ -384,16 +396,16 @@ const ExamsPage = () => {
                   exam ? ( // Extra check for safety
                     <tr key={exam.exam_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {exam.exam_name || "N/A"}
+                        {exam.exam_name || "Không có"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {exam.section_name || "N/A"}
+                        {exam.section_name || "Không có"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {exam.test_category || "N/A"}
+                        {exam.test_category || "Không có"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {exam.total_number_questions ?? "N/A"}
+                        {exam.total_number_questions ?? "Không có"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         {/* --- CORRECTED LINK --- */}
@@ -402,7 +414,7 @@ const ExamsPage = () => {
                           to={`/exam/${exam.exam_id}/question/1/`}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
                         >
-                          Start Exam
+                          Bắt đầu
                         </Link>
                         {/* --- END CORRECTION --- */}
                       </td>
@@ -427,7 +439,7 @@ const ExamsPage = () => {
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 }`}
                 aria-current={currentPage === pageNumber ? "page" : undefined}
-                aria-label={`Go to page ${pageNumber}`}
+                aria-label={`Đi đến trang ${pageNumber}`}
               >
                 {pageNumber}
               </button>

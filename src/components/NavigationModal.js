@@ -76,8 +76,8 @@ const NavigationModal = ({
           </button>
         </div>
 
-        {/* Question Number Grid */}
-        <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-7 md:grid-cols-8 gap-2 mb-6">
+        {/* Question Number Grid - Added max-h and overflow */}
+        <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-7 md:grid-cols-8 gap-2 mb-6 max-h-[60vh] overflow-y-auto">
           {/* Create a button for each question number */}
           {Array.from({ length: totalQuestions }, (_, i) => i + 1).map(
             (qNum) => (

@@ -135,8 +135,15 @@ const ExamReviewPage = ({ pageContext }) => {
       });
     }
 
-    // Optional: Check if any questions are unanswered
+    // Check if *any* questions have been answered
     const answeredCount = Object.keys(userAnswers).length;
+    if (answeredCount === 0) {
+      alert("Please answer at least one question before submitting.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Optional: Check if any questions are *unanswered* (but at least one is answered)
     if (answeredCount < total_questions_in_exam) {
       const unmarkedCount = total_questions_in_exam - answeredCount;
       const confirmSubmit = window.confirm(

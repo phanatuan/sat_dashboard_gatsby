@@ -43,46 +43,92 @@ exports.createPages = async ({ actions, reporter }) => {
   }
   reporter.info(`Fetched ${examsData ? examsData.length : 0} exams.`);
 
-  reporter.info("Fetching exam_questions data (with nested questions)...");
-  const { data: examQuestionsData, error: examQuestionsError } =
-    await supabaseAdmin
-      .from("exam_questions")
-      .select(
-        `
-        exam_id,
-        question_order,
-        questions (
-            question_id,
-            question_html,
-            leading_sentence,
-            answer_a,
-            answer_b,
-            answer_c,
-            answer_d,
-            correct_answer,
-            explanation,
-            domain,
-            skill
-        )
-    `
-      )
-      .order("question_order", { ascending: true })
-      .range(0, 50000); // Consider if pagination is needed for very large datasets
+  // --- Fetch All Exam Questions with Pagination ---
+  reporter.info(
+    "Fetching all exam_questions data (with nested questions) using pagination..."
+  );
+  let allExamQuestionsData = [];
+  let examQuestionsError = null;
+  const pageSize = 1000; // Supabase default limit
+  let currentPage = 0;
+  let fetchedCount = 0;
 
-  if (examQuestionsError) {
+  try {
+    while (true) {
+      const from = currentPage * pageSize;
+      const to = from + pageSize - 1;
+      reporter.info(`Fetching exam_questions range: ${from} - ${to}`);
+
+      const { data: batchData, error: batchError } = await supabaseAdmin
+        .from("exam_questions")
+        .select(
+          `
+          exam_id,
+          question_order,
+          questions (
+              question_id,
+              question_html,
+              leading_sentence,
+              answer_a,
+              answer_b,
+              answer_c,
+              answer_d,
+              correct_answer,
+              explanation,
+              domain,
+              skill
+          )
+      `
+        )
+        .order("question_order", { ascending: true })
+        .range(from, to);
+
+      if (batchError) {
+        examQuestionsError = batchError;
+        reporter.error(
+          `!!! Error fetching exam_questions batch (range ${from}-${to}):`,
+          batchError
+        );
+        break; // Exit loop on error
+      }
+
+      if (batchData && batchData.length > 0) {
+        allExamQuestionsData = allExamQuestionsData.concat(batchData);
+        fetchedCount += batchData.length;
+        reporter.info(
+          `Fetched ${batchData.length} rows in this batch. Total fetched: ${fetchedCount}`
+        );
+      }
+
+      // If fewer rows than pageSize were returned, we've reached the end
+      if (!batchData || batchData.length < pageSize) {
+        reporter.info("Finished fetching all exam_questions data.");
+        break;
+      }
+
+      currentPage++;
+    }
+  } catch (catchError) {
+    // Catch any unexpected errors during the loop/query process
+    examQuestionsError = catchError;
     reporter.error(
-      "!!! Error fetching exam_questions from Supabase:",
-      examQuestionsError
+      "!!! Unexpected error during exam_questions pagination:",
+      catchError
     );
+  }
+
+  // Check for errors after the loop
+  if (examQuestionsError) {
     reporter.panicOnBuild(
       "Aborting build due to error fetching exam_questions."
     );
     return;
   }
+
+  // Assign the fetched data to the variable used later in the script
+  const examQuestionsData = allExamQuestionsData;
   reporter.info(
-    `Fetched ${
-      examQuestionsData ? examQuestionsData.length : 0
-    } exam-question relationships.`
+    `Successfully fetched a total of ${examQuestionsData.length} exam-question relationships.`
   );
 
   // --- 3. Process and Group Data ---
