@@ -42,8 +42,13 @@ const LoginPage = () => {
     setLoading(true);
     setError(""); // Clear previous errors
     try {
-      // Pass provider option object to v2 method
-      const { error } = await signInWithProvider({ provider });
+      // Pass provider option object to v2 method, including redirectTo
+      const { error } = await signInWithProvider({
+        provider,
+        options: {
+          redirectTo: window.location.origin, // Redirect back to the current origin
+        },
+      });
       if (error) throw error;
       // Supabase handles the redirect flow for OAuth
     } catch (err) {

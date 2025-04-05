@@ -167,7 +167,14 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
                     {" "}
                     {/* Container to manage button width if needed */}
                     <GoogleSignInButton
-                      onClick={() => signInWithProvider({ provider: "google" })}
+                      onClick={() =>
+                        signInWithProvider({
+                          provider: "google",
+                          options: {
+                            redirectTo: window.location.origin, // Redirect back to current origin
+                          },
+                        })
+                      }
                       label="Sign in with Google"
                     />
                   </div>
