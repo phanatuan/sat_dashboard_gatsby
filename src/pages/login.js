@@ -1,8 +1,11 @@
 // src/pages/login.js
+// src/pages/login.js
 import React, { useState, useEffect } from "react";
 import { navigate } from "gatsby";
-import { Link } from "gatsby"; // Make sure Link is imported
+// Link might not be needed if we remove the signup link
+// import { Link } from "gatsby";
 import { useAuth } from "../context/AuthContext"; // Import the hook
+import GoogleSignInButton from "../components/GoogleSignInButton"; // Import the new button
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -91,21 +94,22 @@ const LoginPage = () => {
       </form>
       <div className="mt-6 text-center">
         <p className="text-gray-600 mb-4">Or sign in with</p>
-        <button
+        {/* Use the new GoogleSignInButton component */}
+        <GoogleSignInButton
           onClick={() => handleOAuthLogin("google")}
-          className="w-full mb-3 py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
+          label="Sign in with Google"
           disabled={loading}
-        >
-          Sign in with Google
-        </button>
+        />
+        {/* Keep Facebook button commented out for now */}
         {/* <button
           onClick={() => handleOAuthLogin("facebook")}
-          className="w-full py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
+          className="w-full mt-3 py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
           disabled={loading}
         >
           Sign in with Facebook
         </button> */}
       </div>
+      {/* Remove or comment out the link to the signup page */}
       {/* <p className="mt-6 text-center">
         Don't have an account?{" "}
         <Link to="/signup/" className="text-blue-600 hover:underline">

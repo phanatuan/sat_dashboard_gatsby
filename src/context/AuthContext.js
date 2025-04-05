@@ -69,11 +69,20 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Value provided to consuming components (remains the same)
+  // Function to handle sign-in using Google ID token (from One Tap)
+  const signInWithGoogleIdToken = async (id_token) => {
+    return supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: id_token,
+    });
+  };
+
+  // Value provided to consuming components
   const value = {
     signUp: (data) => supabase.auth.signUp(data),
     signIn: (data) => supabase.auth.signInWithPassword(data),
     signInWithProvider: (options) => supabase.auth.signInWithOAuth(options),
+    signInWithGoogleIdToken, // Add the new function here
     signOut: () => supabase.auth.signOut(),
     user,
     role,

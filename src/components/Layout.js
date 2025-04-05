@@ -1,16 +1,100 @@
 // src/components/Layout.js
-import React from "react";
+import React, { useEffect } from "react"; // Import useEffect
 import { Link, navigate } from "gatsby";
+import { Helmet } from "react-helmet"; // Import Helmet
 import { useAuth } from "../context/AuthContext";
+import GoogleSignInButton from "./GoogleSignInButton"; // Import the button
 
 const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
-  const { user, signOut, role, isAdmin } = useAuth();
+  // Get necessary functions/state from context, including new ones
+  const {
+    user,
+    signOut,
+    role,
+    isAdmin,
+    signInWithProvider,
+    signInWithGoogleIdToken,
+  } = useAuth();
+
+  // Google Client ID from environment variables
+  const googleClientId = process.env.GATSBY_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    // Ensure Client ID is set
+    if (!googleClientId) {
+      console.warn(
+        "Google Client ID (GATSBY_GOOGLE_CLIENT_ID) is not set. Google One Tap will not function."
+      );
+      return;
+    }
+
+    // Check if user is already logged in or if google object isn't loaded yet
+    // Need to check window.google as the script loads asynchronously
+    if (user || typeof window === "undefined" || !window.google?.accounts?.id) {
+      return; // Don't initialize or prompt if logged in or script not ready
+    }
+
+    const handleGoogleOneTapCallback = async (response) => {
+      console.log("Google One Tap response received");
+      try {
+        const { error } = await signInWithGoogleIdToken(response.credential);
+        if (error) {
+          console.error(
+            "Error signing in with Google One Tap ID token:",
+            error.message
+          );
+          // Optionally show an error message to the user via state
+        } else {
+          console.log("Successfully signed in with Google One Tap.");
+          // Navigation should be handled by AuthContext's onAuthStateChange effect
+          // which redirects to /exams/ upon successful login.
+        }
+      } catch (err) {
+        console.error("Exception during Google One Tap sign in:", err);
+      }
+    };
+
+    // Initialize Google Identity Services
+    try {
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleOneTapCallback,
+        // auto_select: true, // Consider enabling this for smoother auto-login after first approval
+      });
+
+      // Prompt the user with One Tap, only if not logged in
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed()) {
+          console.log(
+            "Google One Tap prompt was not displayed:",
+            notification.getNotDisplayedReason()
+          );
+        } else if (notification.isSkippedMoment()) {
+          console.log(
+            "Google One Tap prompt was skipped:",
+            notification.getSkippedReason()
+          );
+        } else if (notification.isDismissedMoment()) {
+          console.log(
+            "Google One Tap prompt was dismissed:",
+            notification.getDismissedReason()
+          );
+        }
+      });
+    } catch (error) {
+      console.error("Error initializing or prompting Google One Tap:", error);
+    }
+
+    // No specific cleanup needed for GIS initialize/prompt
+  }, [user, googleClientId, signInWithGoogleIdToken]); // Add dependencies
 
   const handleLogout = async () => {
     try {
       console.log("Logging out...");
       await signOut();
-      navigate("/login/");
+      // Navigate after sign out is confirmed by onAuthStateChange ideally,
+      // but navigating here is common practice too.
+      navigate("/"); // Navigate to home or login page after logout
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -20,6 +104,17 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
     <div
       className={`min-h-screen flex flex-col p-4 sm:p-6 lg:p-8 font-sans text-gray-800 antialiased`}
     >
+      {/* Add Helmet for the script tag */}
+      <Helmet>
+        {googleClientId && ( // Only add script if Client ID is configured
+          <script
+            src="https://accounts.google.com/gsi/client"
+            async
+            defer
+          ></script>
+        )}
+      </Helmet>
+
       {/* Header */}
       <header
         className={`w-full ${maxWidth} mx-auto mb-8 pb-4 border-b border-gray-200`}
@@ -66,13 +161,22 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
               </>
             ) : (
               <>
-                {/* Login/Signup Links */}
-                <Link
-                  to="/login/"
-                  className="text-sm sm:text-base text-blue-600 hover:underline"
-                >
-                  Login
-                </Link>
+                {/* Replace Login link with Google Sign-In Button */}
+                {googleClientId ? ( // Only show button if Client ID is configured
+                  <div className="w-auto">
+                    {" "}
+                    {/* Container to manage button width if needed */}
+                    <GoogleSignInButton
+                      onClick={() => signInWithProvider({ provider: "google" })}
+                      label="Sign in with Google"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm text-red-500">
+                    Google Sign-In not configured
+                  </span>
+                )}
+                {/* Signup link is removed/commented */}
                 {/* <Link
                   to="/signup/"
                   className="text-sm sm:text-base text-blue-600 hover:underline"

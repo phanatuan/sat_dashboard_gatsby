@@ -1,12 +1,14 @@
 // src/pages/exams.js (or wherever your exams page lives)
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Link, navigate } from "gatsby";
+import { Link } from "gatsby";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
+import GoogleSignInButton from "../components/GoogleSignInButton"; // Import the button
 
 const ExamsPage = () => {
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  // Destructure signInWithProvider as well
+  const { user, loading: authLoading, isAdmin, signInWithProvider } = useAuth();
   const [userExams, setUserExams] = useState([]);
   const [isFetchingExams, setIsFetchingExams] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -142,15 +144,18 @@ const ExamsPage = () => {
             Truy cập bị hạn chế
           </h2>
           <p className="mb-6 text-gray-600">
-            Trang này yêu cầu bạn phải đăng nhập. Vui lòng đăng ký hoặc đăng
-            nhập để truy cập các bài thi.
+            Trang này yêu cầu bạn phải đăng nhập. Vui lòng đăng nhập bằng Google
+            để truy cập các bài thi.
           </p>
-          <Link
-            to="/login/"
-            className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
-          >
-            Đăng ký / Đăng nhập
-          </Link>
+          {/* Replace Link with GoogleSignInButton */}
+          <div className="inline-block">
+            {" "}
+            {/* Optional: container for button sizing */}
+            <GoogleSignInButton
+              onClick={() => signInWithProvider({ provider: "google" })}
+              label="Sign in with Google"
+            />
+          </div>
         </div>
       </Layout>
     );
