@@ -4,7 +4,9 @@ import { Link } from "gatsby";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
-import GoogleSignInButton from "../components/GoogleSignInButton"; // Import the button
+// GoogleSignInButton is now used within RestrictedAccessMessage
+// import GoogleSignInButton from "../components/GoogleSignInButton";
+import RestrictedAccessMessage from "../components/RestrictedAccessMessage"; // Import the new component
 
 const ExamsPage = () => {
   // Destructure signInWithProvider as well
@@ -131,32 +133,13 @@ const ExamsPage = () => {
   }
 
   // --- Post-Loading, Pre-Render Checks ---
-  // If not loading and still no user, show the login prompt message and button
+  // If not loading and still no user, show the reusable restricted access message
   if (!user) {
     return (
       <Layout maxWidth="max-w-5xl">
-        {" "}
-        {/* Changed back to match the main page layout */}
-        <div className="text-center p-8 border border-gray-200 rounded-lg shadow-sm bg-white mt-10">
-          {" "}
-          {/* Added margin-top for spacing */}
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Truy cập bị hạn chế
-          </h2>
-          <p className="mb-6 text-gray-600">
-            Trang này yêu cầu bạn phải đăng nhập. Vui lòng đăng nhập bằng Google
-            để truy cập các bài thi.
-          </p>
-          {/* Replace Link with GoogleSignInButton */}
-          <div className="inline-block">
-            {" "}
-            {/* Optional: container for button sizing */}
-            <GoogleSignInButton
-              onClick={() => signInWithProvider({ provider: "google" })}
-              label="Sign in with Google"
-            />
-          </div>
-        </div>
+        {/* Use the new component. Pass custom props if needed, otherwise defaults are used. */}
+        {/* Example with custom props: <RestrictedAccessMessage title="Exams Access Denied" message="Please log in to view exams." /> */}
+        <RestrictedAccessMessage />
       </Layout>
     );
   }
