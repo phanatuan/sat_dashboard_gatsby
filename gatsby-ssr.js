@@ -3,21 +3,21 @@ import React from "react";
 import { AuthProvider } from "./src/context/AuthContext";
 import { ExamTimerProvider } from "./src/context/ExamTimerContext";
 
-const examQuestionPathRegex = /^\/exams\/([^/]+)\/questions\/([^/]+)\/?$/;
+// Note: No CSS import needed in gatsby-ssr.js
 
 export const wrapPageElement = ({ element, props }) => {
-  const match = props.path.match(examQuestionPathRegex); // Use props.path in SSR
-  const currentExamId = match ? match[1] : null;
+  // Attempt to get the exam_id from the page's context in SSR
+  // It might be undefined on pages that don't have it.
+  // The ExamTimerProvider handles null/undefined exam IDs.
+  const currentExamId = props.pageContext?.exam_id;
 
+  // Wrap with AuthProvider always
+  // Wrap with ExamTimerProvider always, passing the examId (or null)
   return (
     <AuthProvider>
-      {currentExamId ? (
-        <ExamTimerProvider currentExamId={currentExamId}>
-          {element}
-        </ExamTimerProvider>
-      ) : (
-        element
-      )}
+      <ExamTimerProvider currentExamId={currentExamId}>
+        {element}
+      </ExamTimerProvider>
     </AuthProvider>
   );
 };

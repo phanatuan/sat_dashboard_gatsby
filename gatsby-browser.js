@@ -4,24 +4,19 @@ import { AuthProvider } from "./src/context/AuthContext";
 import { ExamTimerProvider } from "./src/context/ExamTimerContext";
 import "./src/styles/global.css"; // Keep existing CSS import
 
-// Regex to match exam question pages
-const examQuestionPathRegex = /^\/exams\/([^/]+)\/questions\/([^/]+)\/?$/;
-
 export const wrapPageElement = ({ element, props }) => {
-  const match = props.location.pathname.match(examQuestionPathRegex);
-  const currentExamId = match ? match[1] : null; // Extract exam_id from path
+  // Attempt to get the exam_id from the page's context
+  // It might be undefined on pages that don't have it (like the homepage)
+  // The ExamTimerProvider itself handles null/undefined exam IDs gracefully.
+  const currentExamId = props.pageContext?.exam_id;
 
   // Wrap with AuthProvider always
-  // Wrap with ExamTimerProvider only on exam question pages, passing the examId
+  // Wrap with ExamTimerProvider always, passing the examId (or null)
   return (
     <AuthProvider>
-      {currentExamId ? (
-        <ExamTimerProvider currentExamId={currentExamId}>
-          {element}
-        </ExamTimerProvider>
-      ) : (
-        element // Don't wrap non-exam pages with timer context
-      )}
+      <ExamTimerProvider currentExamId={currentExamId}>
+        {element}
+      </ExamTimerProvider>
     </AuthProvider>
   );
 };

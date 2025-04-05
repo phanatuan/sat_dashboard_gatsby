@@ -29,11 +29,13 @@ const ExamsPage = () => {
 
   // --- Data Fetching Effect ---
   useEffect(() => {
-    if (!authLoading && !user) {
-      // console.log("[Auth Effect] No user, navigating to login.");
-      navigate("/login/");
-      return;
-    }
+    // Removed the immediate navigation for non-logged-in users here.
+    // The component's render logic will now handle showing the message.
+    // if (!authLoading && !user) {
+    //   // console.log("[Auth Effect] No user, navigating to login.");
+    //   // navigate("/login/"); // <<< REMOVED THIS LINE
+    //   return;
+    // }
 
     if (!authLoading && user && typeof isAdmin === "boolean") {
       const fetchExamsData = async () => {
@@ -127,11 +129,29 @@ const ExamsPage = () => {
   }
 
   // --- Post-Loading, Pre-Render Checks ---
-  // If not loading and still no user, prompt login (should have navigated already, but safe check)
+  // If not loading and still no user, show the login prompt message and button
   if (!user) {
     return (
       <Layout maxWidth="max-w-5xl">
-        <p>Please log in to view exams.</p>
+        {" "}
+        {/* Changed back to match the main page layout */}
+        <div className="text-center p-8 border border-gray-200 rounded-lg shadow-sm bg-white mt-10">
+          {" "}
+          {/* Added margin-top for spacing */}
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+            Access Restricted
+          </h2>
+          <p className="mb-6 text-gray-600">
+            This page requires you to be logged in. Please sign up or log in to
+            access the exams.
+          </p>
+          <Link
+            to="/login/"
+            className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+          >
+            Sign Up / Log In
+          </Link>
+        </div>
       </Layout>
     );
   }
