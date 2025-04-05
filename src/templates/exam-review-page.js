@@ -1,7 +1,6 @@
 // src/templates/exam-review-page.js
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, navigate } from "gatsby";
-import clsx from "clsx";
 import { supabase } from "../supabaseClient";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
@@ -35,8 +34,13 @@ const loadExamStateFromLocalStorage = (examId) => {
 };
 
 const ExamReviewPage = ({ pageContext }) => {
-  const { exam_id, exam_name, total_questions_in_exam, all_question_paths } =
-    pageContext;
+  const {
+    exam_id,
+    exam_name,
+    total_questions_in_exam,
+    all_question_paths,
+    questionOrderToIdMap, // Destructure the new map
+  } = pageContext;
   const { user, loading: authLoading } = useAuth();
   const { formattedTime, resetTimer, pauseTimer, resumeTimer } = useExamTimer(); // Use pause/resume if needed
 
@@ -114,6 +118,22 @@ const ExamReviewPage = ({ pageContext }) => {
     // Load the absolute latest state from LS before submitting
     const finalExamState = loadExamStateFromLocalStorage(exam_id);
     const userAnswers = finalExamState.answers || {};
+    // Extract marked question ORDERS
+    const markedOrders = Object.keys(finalExamState.marked || {}).filter(
+      (key) => finalExamState.marked[key] === true
+    );
+    // Map marked orders to actual question IDs using the map from context
+    const markedQuestionIds = markedOrders
+      .map((order) => questionOrderToIdMap?.[order]) // Get ID from map
+      .filter((id) => id !== undefined && id !== null); // Filter out any undefined/null IDs
+
+    // Optional: Log if mapping failed for some orders
+    if (markedOrders.length !== markedQuestionIds.length) {
+      console.warn("Could not map all marked question orders to IDs:", {
+        markedOrders,
+        markedQuestionIds,
+      });
+    }
 
     // Optional: Check if any questions are unanswered
     const answeredCount = Object.keys(userAnswers).length;
@@ -133,6 +153,7 @@ const ExamReviewPage = ({ pageContext }) => {
         body: {
           examId: exam_id,
           userAnswers: userAnswers,
+          markedQuestions: markedQuestionIds, // Send the array of actual IDs
         },
       });
 
@@ -157,7 +178,13 @@ const ExamReviewPage = ({ pageContext }) => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [exam_id, resetTimer, isSubmitting, total_questions_in_exam]); // Dependencies
+  }, [
+    exam_id,
+    resetTimer,
+    isSubmitting,
+    total_questions_in_exam,
+    questionOrderToIdMap, // Add missing dependency
+  ]);
 
   // --- Grid Styling Function ---
   const getStatusClass = (qNum) => {

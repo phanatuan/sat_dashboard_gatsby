@@ -6,6 +6,7 @@ import { corsHeaders } from "../shared/cors.ts";
 interface SubmissionPayload {
   examId: string;
   userAnswers: { [key: number]: string }; // { question_order: selected_choice }
+  markedQuestions?: string[]; // Array of question_ids marked for review
 }
 
 serve(async (req) => {
@@ -42,8 +43,10 @@ serve(async (req) => {
 
     // 4. Parse request body
     const payload: SubmissionPayload = await req.json();
-    const { examId, userAnswers } = payload;
+    // Default markedQuestions to an empty array if not provided
+    const { examId, userAnswers, markedQuestions = [] } = payload;
 
+    // Keep the original check: require examId and non-empty userAnswers
     if (!examId || !userAnswers || Object.keys(userAnswers).length === 0) {
       return new Response(
         JSON.stringify({ error: "Missing examId or userAnswers" }),
@@ -103,38 +106,34 @@ serve(async (req) => {
         ? parseFloat(((correctCount / totalQuestions) * 100).toFixed(2)) // Calculate and format to 2 decimal places
         : 0;
 
-    // 7. Insert result into the database
-    const { data: resultData, error: insertError } = await supabaseClient
+    // 7. Upsert result into the database (Insert or Update)
+    const { data: resultData, error: upsertError } = await supabaseClient
       .from("exam_results")
-      .insert({
-        user_id: user.id,
-        exam_id: examId,
-        score_percentage: scorePercentage,
-        correct_count: correctCount,
-        total_questions: totalQuestions,
-        user_answers: userAnswers, // Store the submitted answers
-        submitted_at: new Date().toISOString(),
-      })
-      .select("id") // Select the ID of the newly created record
+      .upsert(
+        {
+          user_id: user.id,
+          exam_id: examId,
+          score_percentage: scorePercentage,
+          correct_count: correctCount,
+          total_questions: totalQuestions,
+          user_answers: userAnswers, // Store the submitted answers
+          submitted_at: new Date().toISOString(),
+          marked_questions: markedQuestions, // Store the marked questions
+        },
+        {
+          onConflict: "user_id, exam_id", // Specify columns for conflict detection
+        }
+      )
+      .select("id") // Select the ID of the upserted record
       .single(); // Expect only one record back
 
-    if (insertError) {
-      console.error("Error inserting result:", insertError);
-      // Handle potential unique constraint violation if user already submitted
-      if (insertError.code === "23505") {
-        // Check for unique violation code
-        return new Response(
-          JSON.stringify({ error: "Exam already submitted" }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 409, // Conflict
-          }
-        );
-      }
-      throw insertError;
+    if (upsertError) {
+      console.error("Error upserting result:", upsertError);
+      // No need to specifically check for 23505 (unique violation) as upsert handles it
+      throw upsertError;
     }
 
-    // 8. Return success response (maybe include the score or result ID)
+    // 8. Return success response (resultData.id will be the ID of the inserted or updated row)
     return new Response(
       JSON.stringify({
         message: "Exam submitted successfully!",

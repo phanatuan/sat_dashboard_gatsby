@@ -178,7 +178,13 @@ exports.createPages = async ({ actions, reporter }) => {
     });
     // reporter.info(`Generated ${Object.keys(allQuestionPaths).length} paths for exam ${exam.exam_id}`); // Optional debug log
 
-    // --- 5b. Create Individual Question Pages ---
+    // --- 5b. Create Question Order to ID Map ---
+    const questionOrderToIdMap = {};
+    questions.forEach((q) => {
+      questionOrderToIdMap[q.question_order] = q.question_id;
+    });
+
+    // --- 5c. Create Individual Question Pages ---
     questions.forEach((question, index) => {
       const currentOrder = question.question_order;
       const pagePath = allQuestionPaths[currentOrder]; // Use the generated path
@@ -237,6 +243,7 @@ exports.createPages = async ({ actions, reporter }) => {
           exam_name: exam.exam_name,
           total_questions_in_exam: totalQuestions,
           all_question_paths: allQuestionPaths, // <-- Pass the map here too
+          questionOrderToIdMap: questionOrderToIdMap, // <-- Pass the new map
         },
       });
       reviewPageCount++;

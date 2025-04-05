@@ -31,7 +31,7 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
             to="/"
             className="text-xl sm:text-2xl font-bold text-gray-800 hover:text-blue-700 transition-colors"
           >
-            Exam Platform
+            SAT PEAK
           </Link>
           <nav className="flex items-center space-x-3 sm:space-x-4">
             {" "}
@@ -48,11 +48,13 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
                   </Link>
                 )}
 
-                {/* Display user email and role */}
-                <span className="text-sm sm:text-base text-gray-600 hidden sm:inline whitespace-nowrap">
-                  {" "}
+                {/* Display user email and role as a link */}
+                <Link
+                  to="/user-profile"
+                  className="text-sm sm:text-base text-gray-600 hover:text-blue-700 hover:underline hidden sm:inline whitespace-nowrap transition-colors"
+                >
                   {user.email} ({role}) {/* Display role if it exists */}
-                </span>
+                </Link>
 
                 {/* Logout Button */}
                 <button
