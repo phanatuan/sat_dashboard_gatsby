@@ -98,20 +98,20 @@ const LoginPage = () => {
         >
           Sign in with Google
         </button>
-        <button
+        {/* <button
           onClick={() => handleOAuthLogin("facebook")}
           className="w-full py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
           disabled={loading}
         >
           Sign in with Facebook
-        </button>
+        </button> */}
       </div>
-      <p className="mt-6 text-center">
+      {/* <p className="mt-6 text-center">
         Don't have an account?{" "}
         <Link to="/signup/" className="text-blue-600 hover:underline">
           Sign Up
         </Link>
-      </p>
+      </p> */}
     </div>
   );
 };

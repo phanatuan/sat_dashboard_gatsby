@@ -73,12 +73,12 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
                 >
                   Login
                 </Link>
-                <Link
+                {/* <Link
                   to="/signup/"
                   className="text-sm sm:text-base text-blue-600 hover:underline"
                 >
                   Sign Up
-                </Link>
+                </Link> */}
               </>
             )}
           </nav>

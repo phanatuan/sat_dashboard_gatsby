@@ -10,7 +10,8 @@ const SignUpPage = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signUp, user } = useAuth();
+  // Destructure signInWithProvider along with signUp and user
+  const { signUp, signInWithProvider, user } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -41,6 +42,21 @@ const SignUpPage = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add OAuth handler similar to login page
+  const handleOAuthLogin = async (provider) => {
+    setLoading(true);
+    setError(""); // Clear previous errors
+    try {
+      // Pass provider option object to v2 method
+      const { error } = await signInWithProvider({ provider });
+      if (error) throw error;
+      // Supabase handles the redirect flow for OAuth, navigation handled by useEffect
+    } catch (err) {
+      setError(err.message);
+      setLoading(false); // Only set loading false if error occurs, otherwise Supabase redirects
     }
   };
 
@@ -110,6 +126,26 @@ const SignUpPage = () => {
           Login
         </Link>
       </p>
+
+      {/* Add OAuth Sign in options */}
+      <div className="mt-6 text-center border-t pt-6">
+        <p className="text-gray-600 mb-4">Or sign up with</p>
+        <button
+          onClick={() => handleOAuthLogin("google")}
+          className="w-full mb-3 py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
+          disabled={loading}
+        >
+          Sign up with Google
+        </button>
+        {/* You can add other providers similarly if needed */}
+        {/* <button
+          onClick={() => handleOAuthLogin("facebook")}
+          className="w-full py-2 px-4 border rounded shadow-sm hover:shadow-md transition duration-150 flex items-center justify-center"
+          disabled={loading}
+        >
+          Sign up with Facebook
+        </button> */}
+      </div>
     </div>
   );
 };
