@@ -1,6 +1,6 @@
 // src/components/QuestionEditModal.js
-import React, { useState, useEffect } from "react";
-import ReactQuill from "react-quill"; // Keep the import, but rendering will be conditional
+import React, { useState, useEffect, lazy, Suspense } from "react"; // Add lazy and Suspense
+// Remove static import: import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css"; // Import Quill styles
 import { supabase } from "../supabaseClient"; // Import supabase client
 
@@ -29,6 +29,9 @@ const quillFormats = [
   "image", // Add image format
   "align",
 ];
+
+// Dynamically import ReactQuill
+const LazyReactQuill = lazy(() => import("react-quill"));
 
 const QuestionEditModal = ({
   isOpen,
@@ -133,17 +136,22 @@ const QuestionEditModal = ({
             >
               Question HTML
             </label>
-            {/* Conditionally render ReactQuill only on the client */}
+            {/* Conditionally render ReactQuill using Suspense and Lazy */}
             {isClient ? (
-              <>
-                <ReactQuill
-                  theme="snow" // Use the "snow" theme (includes toolbar)
+              <Suspense
+                fallback={
+                  <div className="w-full p-2 border border-gray-300 rounded h-48 bg-gray-100 flex items-center justify-center text-gray-500">
+                    Loading Editor...
+                  </div>
+                }
+              >
+                <LazyReactQuill
+                  theme="snow"
                   value={formData.question_html || ""}
                   onChange={handleQuillChange}
                   modules={quillModules}
                   formats={quillFormats}
-                  className="bg-white" // Add bg-white if needed for theme contrast
-                  // The container will grow, adjust layout if needed
+                  className="bg-white"
                 />
                 {/* Add space below editor if toolbar overlaps */}
                 <div className="mt-10"></div>
@@ -162,9 +170,9 @@ const QuestionEditModal = ({
                     className="w-full p-2 border border-gray-200 rounded bg-gray-50 text-xs font-mono h-24 resize-none" // Use monospace font, fixed height
                   />
                 </div>
-              </>
+              </Suspense>
             ) : (
-              // Placeholder during SSR or before client mount
+              // Placeholder during SSR or before client mount (Suspense fallback will also cover this)
               <div className="w-full p-2 border border-gray-300 rounded h-48 bg-gray-100 flex items-center justify-center text-gray-500">
                 Loading Editor...
               </div>
