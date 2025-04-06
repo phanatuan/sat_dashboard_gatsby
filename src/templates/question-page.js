@@ -501,10 +501,18 @@ const QuestionPage = ({ pageContext }) => {
               {showExplanation && (
                 // Ensure explanation also aligns well, give it full width in the flex container
                 <div className="w-full mt-1 p-3 border-t border-gray-200 bg-gray-50 rounded">
-                  <p className="font-semibold text-gray-800">Explanation:</p>
-                  <p className="mb-2 text-gray-700">
-                    {question_data.explanation || "No explanation provided."}
-                  </p>
+                  <p className="font-semibold text-gray-800 mb-1">
+                    Explanation:
+                  </p>{" "}
+                  {/* Added mb-1 for spacing */}
+                  {/* Render explanation HTML */}
+                  <div
+                    className="mb-2 text-gray-700 prose prose-sm max-w-none" // Added prose classes for basic styling
+                    dangerouslySetInnerHTML={{
+                      __html:
+                        question_data.explanation || "No explanation provided.",
+                    }}
+                  />
                   <p className="font-semibold text-green-700">
                     Correct Answer: {question_data.correct_answer}
                   </p>
