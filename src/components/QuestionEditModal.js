@@ -84,6 +84,11 @@ const QuestionEditModal = ({
     setFormData((prev) => ({ ...prev, question_html: content }));
   };
 
+  // Specific handler for Explanation ReactQuill onChange
+  const handleExplanationQuillChange = (content) => {
+    setFormData((prev) => ({ ...prev, explanation: content }));
+  };
+
   const handleSaveClick = async () => {
     setError(null); // Clear previous errors
     if (!initialQuestionData?.question_id) {
@@ -243,14 +248,47 @@ const QuestionEditModal = ({
             >
               Explanation (Optional)
             </label>
-            <textarea
-              id="explanation"
-              name="explanation"
-              rows="4"
-              value={formData.explanation || ""}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
-            />
+            {/* Conditionally render ReactQuill for Explanation */}
+            {isClient ? (
+              <Suspense
+                fallback={
+                  <div className="w-full p-2 border border-gray-300 rounded h-48 bg-gray-100 flex items-center justify-center text-gray-500">
+                    Loading Editor...
+                  </div>
+                }
+              >
+                <LazyReactQuill
+                  theme="snow"
+                  value={formData.explanation || ""}
+                  onChange={handleExplanationQuillChange} // Use the new handler
+                  modules={quillModules}
+                  formats={quillFormats}
+                  className="bg-white"
+                />
+                {/* Add space below editor if toolbar overlaps */}
+                <div className="mt-10"></div>
+                {/* Raw HTML Preview Area for Explanation */}
+                <div className="mt-4">
+                  <label
+                    htmlFor="explanation_raw"
+                    className="block text-xs font-medium text-gray-600 mb-1"
+                  >
+                    Raw Explanation HTML Preview (Read-only)
+                  </label>
+                  <textarea
+                    id="explanation_raw"
+                    readOnly
+                    value={formData.explanation || ""}
+                    className="w-full p-2 border border-gray-200 rounded bg-gray-50 text-xs font-mono h-24 resize-none" // Use monospace font, fixed height
+                  />
+                </div>
+              </Suspense>
+            ) : (
+              // Placeholder during SSR or before client mount
+              <div className="w-full p-2 border border-gray-300 rounded h-48 bg-gray-100 flex items-center justify-center text-gray-500">
+                Loading Editor...
+              </div>
+            )}
           </div>
           {/* Other Fields (Domain, Skill, Difficulty etc.) - Add as needed */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
