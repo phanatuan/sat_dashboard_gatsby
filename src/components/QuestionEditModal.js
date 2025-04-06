@@ -1,6 +1,7 @@
 // src/components/QuestionEditModal.js
 import React, { useState, useEffect } from "react";
-import ReactQuill from "react-quill"; // Import ReactQuill
+import ReactQuill from "react-quill"; // Keep the import, but rendering will be conditional
+import "react-quill/dist/quill.snow.css"; // Import Quill styles
 import { supabase } from "../supabaseClient"; // Import supabase client
 
 // Define Quill modules and formats (customize as needed)
@@ -38,6 +39,12 @@ const QuestionEditModal = ({
 }) => {
   const [formData, setFormData] = useState({});
   const [error, setError] = useState(null); // Local error state for the modal form
+  const [isClient, setIsClient] = useState(false); // State to track client-side rendering
+
+  // Set isClient to true only after mounting on the client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Initialize form data when the modal opens or initial data changes
   useEffect(() => {
@@ -126,34 +133,42 @@ const QuestionEditModal = ({
             >
               Question HTML
             </label>
-            {/* Replace textarea with ReactQuill */}
-            <ReactQuill
-              theme="snow" // Use the "snow" theme (includes toolbar)
-              value={formData.question_html || ""}
-              onChange={handleQuillChange}
-              modules={quillModules}
-              formats={quillFormats}
-              className="bg-white" // Add bg-white if needed for theme contrast
-              // Add style={{ height: '200px', marginBottom: '40px' }} or similar if needed
-              // The container will grow, but you might need to adjust layout
-            />
-            {/* Add some space below the editor if toolbar overlaps */}
-            <div className="mt-10"></div>
-            {/* Raw HTML Preview Area */}
-            <div className="mt-4">
-              <label
-                htmlFor="question_html_raw"
-                className="block text-xs font-medium text-gray-600 mb-1"
-              >
-                Raw HTML Preview (Read-only)
-              </label>
-              <textarea
-                id="question_html_raw"
-                readOnly
-                value={formData.question_html || ""}
-                className="w-full p-2 border border-gray-200 rounded bg-gray-50 text-xs font-mono h-24 resize-none" // Use monospace font, fixed height
-              />
-            </div>
+            {/* Conditionally render ReactQuill only on the client */}
+            {isClient ? (
+              <>
+                <ReactQuill
+                  theme="snow" // Use the "snow" theme (includes toolbar)
+                  value={formData.question_html || ""}
+                  onChange={handleQuillChange}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  className="bg-white" // Add bg-white if needed for theme contrast
+                  // The container will grow, adjust layout if needed
+                />
+                {/* Add space below editor if toolbar overlaps */}
+                <div className="mt-10"></div>
+                {/* Raw HTML Preview Area */}
+                <div className="mt-4">
+                  <label
+                    htmlFor="question_html_raw"
+                    className="block text-xs font-medium text-gray-600 mb-1"
+                  >
+                    Raw HTML Preview (Read-only)
+                  </label>
+                  <textarea
+                    id="question_html_raw"
+                    readOnly
+                    value={formData.question_html || ""}
+                    className="w-full p-2 border border-gray-200 rounded bg-gray-50 text-xs font-mono h-24 resize-none" // Use monospace font, fixed height
+                  />
+                </div>
+              </>
+            ) : (
+              // Placeholder during SSR or before client mount
+              <div className="w-full p-2 border border-gray-300 rounded h-48 bg-gray-100 flex items-center justify-center text-gray-500">
+                Loading Editor...
+              </div>
+            )}
           </div>
           {/* Leading Sentence */}
           <div className="mb-4">
