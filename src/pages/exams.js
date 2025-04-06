@@ -126,7 +126,7 @@ const ExamsPage = () => {
       (isFetchingExams || (user && typeof isAdmin !== "boolean")))
   ) {
     return (
-      <Layout maxWidth="max-w-5xl">
+      <Layout>
         <p>Đang tải dữ liệu người dùng...</p>
       </Layout>
     );
@@ -136,7 +136,7 @@ const ExamsPage = () => {
   // If not loading and still no user, show the reusable restricted access message
   if (!user) {
     return (
-      <Layout maxWidth="max-w-5xl">
+      <Layout>
         {/* Use the new component. Pass custom props if needed, otherwise defaults are used. */}
         {/* Example with custom props: <RestrictedAccessMessage title="Exams Access Denied" message="Please log in to view exams." /> */}
         <RestrictedAccessMessage />
@@ -196,7 +196,7 @@ const ExamsPage = () => {
 
   // --- Render Logic ---
   return (
-    <Layout maxWidth="max-w-5xl">
+    <Layout>
       {/* Using wider layout */}
       <h1 className="text-2xl sm:text-3xl font-bold mb-6">
         Các bài thi hiện có

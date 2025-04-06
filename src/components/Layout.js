@@ -30,6 +30,7 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
 
     // Check if user is already logged in or if google object isn't loaded yet
     // Need to check window.google as the script loads asynchronously
+    console.log("User state:", user);
     if (user || typeof window === "undefined" || !window.google?.accounts?.id) {
       return; // Don't initialize or prompt if logged in or script not ready
     }
@@ -143,12 +144,36 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
                   </Link>
                 )}
 
-                {/* Display user email and role as a link */}
+                {/* Display user avatar and name as a link */}
                 <Link
                   to="/user-profile"
-                  className="text-sm sm:text-base text-gray-600 hover:text-blue-700 hover:underline hidden sm:inline whitespace-nowrap transition-colors"
+                  className="text-sm sm:text-base text-gray-600 hover:text-blue-700 transition-colors hidden sm:inline" // Removed flex items-center space-x-2
                 >
-                  {user.email} ({role}) {/* Display role if it exists */}
+                  {/* Check for avatar_url in user_metadata */}
+                  {user.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="User avatar"
+                      className="w-6 h-6 rounded-full inline-block align-middle mr-2" // Use inline-block, align-middle, add margin
+                      referrerPolicy="no-referrer" // For Google avatars
+                    />
+                  ) : (
+                    // Fallback: Simple initial or placeholder icon if no avatar
+                    <span className="w-6 h-6 rounded-full bg-gray-300 inline-flex items-center justify-center text-xs font-semibold text-gray-600 align-middle mr-2">
+                      {" "}
+                      {/* Use inline-flex for centering text, align-middle, add margin */}
+                      {user.email?.[0]?.toUpperCase() || "?"}
+                    </span>
+                  )}
+                  {/* Check for full_name or name in user_metadata, fallback to email */}
+                  <span className="whitespace-nowrap inline-block align-middle">
+                    {" "}
+                    {/* Use inline-block and align-middle */}
+                    {user.user_metadata?.full_name ||
+                      user.user_metadata?.name ||
+                      user.email}
+                    {/* ({role}) Optionally add role back if needed */}
+                  </span>
                 </Link>
 
                 {/* Logout Button */}
