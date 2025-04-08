@@ -68,9 +68,12 @@ const QuestionPage = ({ pageContext }) => {
   const [checkButtonText, setCheckButtonText] = useState("Check Answer");
   const [isCorrect, setIsCorrect] = useState(false);
   const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For final submission
+  const [submitError, setSubmitError] = useState(null); // For final submission error
   const [isNavModalOpen, setIsNavModalOpen] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false); // State for saving progress
+  const [saveProgressError, setSaveProgressError] = useState(null); // Error for saving progress
+  const [saveProgressSuccess, setSaveProgressSuccess] = useState(false); // Success feedback for saving
 
   // 'allQuestionStatuses' holds the { answers: {}, marked: {} } object for ALL questions, loaded from LS
   const [allQuestionStatuses, setAllQuestionStatuses] = useState({
@@ -151,6 +154,7 @@ const QuestionPage = ({ pageContext }) => {
     setIsCorrect(false);
     // Save the selected answer
     saveAnswerToLocalStorage(answerChoice);
+    setSaveProgressSuccess(false); // Reset save success message on new answer
   };
 
   // Check answer (Practice Mode)
@@ -189,6 +193,7 @@ const QuestionPage = ({ pageContext }) => {
     saveExamStateToLocalStorage(exam_id, updatedState);
     // Ensure the state passed to the modal is updated
     setAllQuestionStatuses(updatedState);
+    setSaveProgressSuccess(false); // Reset save success message on marking
   };
 
   // Open the navigation modal
@@ -266,6 +271,82 @@ const QuestionPage = ({ pageContext }) => {
       // Keep the modal open so the user can see the error
     } finally {
       setIsSavingQuestion(false);
+    }
+  };
+
+  // --- Save Progress Handler ---
+  const handleSaveProgress = async () => {
+    if (isSavingProgress || typeof window === "undefined" || !user) return;
+
+    setIsSavingProgress(true);
+    setSaveProgressError(null);
+    setSaveProgressSuccess(false);
+
+    // Load the latest state from LS
+    const currentExamState = loadExamStateFromLocalStorage(exam_id);
+    const userAnswers = currentExamState.answers || {};
+    // Optional: Include marked questions if needed by the backend function
+    // const markedOrders = Object.keys(currentExamState.marked || {}).filter(key => currentExamState.marked[key] === true);
+    // const markedQuestionIds = markedOrders.map(order => questionOrderToIdMap?.[order]).filter(id => id != null);
+
+    // Check if there's anything to save
+    if (Object.keys(userAnswers).length === 0) {
+      setSaveProgressError("No progress to save yet.");
+      setIsSavingProgress(false);
+      return;
+    }
+
+    try {
+      const token = await supabase.auth
+        .getSession()
+        .then(({ data: { session } }) => session?.access_token);
+
+      if (!token) {
+        throw new Error("Authentication token not found.");
+      }
+
+      // Ensure the environment variable is defined, otherwise throw an error or use a default
+      const supabaseUrl = process.env.GATSBY_SUPABASE_URL;
+      if (!supabaseUrl) {
+        console.error("GATSBY_SUPABASE_URL environment variable is not set.");
+        throw new Error("Configuration error: Supabase URL is missing.");
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/save-exam-progress`, // Correctly use the frontend env variable
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            examId: exam_id,
+            userAnswers: userAnswers,
+            // markedQuestions: markedQuestionIds, // Uncomment if sending marked questions
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      console.log("Progress saved successfully:", result);
+      setSaveProgressSuccess(true);
+      // Optional: Hide success message after a delay
+      setTimeout(() => setSaveProgressSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save progress:", err);
+      setSaveProgressError(err.message || "An unexpected error occurred.");
+      // Optional: Hide error message after a delay
+      // setTimeout(() => setSaveProgressError(null), 5000);
+    } finally {
+      setIsSavingProgress(false);
     }
   };
 
@@ -390,6 +471,27 @@ const QuestionPage = ({ pageContext }) => {
             >
               {isMarked ? "Marked for Review" : "Mark for Review"}
             </button>
+            {/* --- SAVE PROGRESS BUTTON --- */}
+            <button
+              onClick={handleSaveProgress}
+              disabled={isSavingProgress}
+              className={clsx(
+                "ml-3 px-3 py-1 border rounded transition duration-150 text-sm",
+                isSavingProgress
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "border-green-500 text-green-600 hover:bg-green-50",
+                saveProgressSuccess && !isSavingProgress // Style for success state
+                  ? "bg-green-100 border-green-500 text-green-700"
+                  : ""
+              )}
+            >
+              {isSavingProgress
+                ? "Saving..."
+                : saveProgressSuccess
+                ? "Saved!"
+                : "Save Progress"}
+            </button>
+            {/* --- END SAVE PROGRESS BUTTON --- */}
             {isAdmin && (
               <button
                 onClick={handleOpenEditModal}
@@ -400,6 +502,13 @@ const QuestionPage = ({ pageContext }) => {
               </button>
             )}
           </div>
+          {/* --- SAVE PROGRESS ERROR DISPLAY --- */}
+          {saveProgressError && (
+            <div className="mb-4 p-2 text-xs bg-red-100 border border-red-300 text-red-700 rounded">
+              Save Error: {saveProgressError}
+            </div>
+          )}
+          {/* --- END SAVE PROGRESS ERROR DISPLAY --- */}
 
           {/* Optional Leading Sentence */}
           {question_data.leading_sentence && (

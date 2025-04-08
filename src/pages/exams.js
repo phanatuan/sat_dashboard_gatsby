@@ -1,6 +1,13 @@
 // src/pages/exams.js (or wherever your exams page lives)
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react"; // Added useCallback
 import { Link } from "gatsby";
+import clsx from "clsx"; // *** IMPORT clsx ***
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
@@ -9,12 +16,12 @@ import { supabase } from "../supabaseClient";
 import RestrictedAccessMessage from "../components/RestrictedAccessMessage"; // Import the new component
 
 const ExamsPage = () => {
-  // Destructure signInWithProvider as well
-  const { user, loading: authLoading, isAdmin, signInWithProvider } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth(); // Removed signInWithProvider if not used here
   const [userExams, setUserExams] = useState([]);
-  const [isFetchingExams, setIsFetchingExams] = useState(true);
+  const [userExamResults, setUserExamResults] = useState({}); // State for exam results { exam_id: latest_result }
+  const [isFetchingExams, setIsFetchingExams] = useState(true); // Tracks fetching exams AND results now
   const [fetchError, setFetchError] = useState(null);
-  const initialLoadComplete = useRef(false);
+  const initialLoadComplete = useRef(false); // Tracks completion of initial data load (exams + results)
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,27 +38,24 @@ const ExamsPage = () => {
     return [...new Set(categories)].sort();
   }, [userExams]);
 
-  // --- Data Fetching Effect ---
+  // --- Data Fetching Effect (Exams and Results - Optimized) ---
   useEffect(() => {
-    // Removed the immediate navigation for non-logged-in users here.
-    // The component's render logic will now handle showing the message.
     // if (!authLoading && !user) {
     //   // console.log("[Auth Effect] No user, navigating to login.");
     //   // navigate("/login/"); // <<< REMOVED THIS LINE
     //   return;
-    // }
-
     if (!authLoading && user && typeof isAdmin === "boolean") {
-      const fetchExamsData = async () => {
-        // Avoid setting loading state on subsequent fetches unless necessary
+      const fetchExamsAndResults = async () => {
+        // Set loading state only on initial load
         if (!initialLoadComplete.current) {
           setIsFetchingExams(true);
         }
         setFetchError(null);
+        setUserExamResults({}); // Clear previous results
 
         try {
-          let query;
-          // Select fields needed for the table and linking
+          // 1. Fetch Exams
+          let examQuery;
           const selectFields = `
             exam_id,
             exam_name,
@@ -62,31 +66,57 @@ const ExamsPage = () => {
           `;
 
           if (isAdmin) {
-            // Admin fetches all exams directly
-            query = supabase.from("exams").select(selectFields);
+            examQuery = supabase.from("exams").select(selectFields);
           } else {
-            // Non-admin fetches exams they have access to via junction table
-            query = supabase
+            examQuery = supabase
               .from("user_exam_access")
-              .select(`exams (${selectFields})`) // Select nested exam data
+              .select(`exams (${selectFields})`)
               .eq("user_id", user.id);
           }
 
-          const { data, error } = await query;
+          const { data: examData, error: examError } = await examQuery;
 
-          if (error) {
-            console.error("Supabase fetch error:", error);
+          if (examError) {
+            console.error("Supabase exam fetch error:", examError);
             setUserExams([]);
-            setFetchError(`Error loading exams: ${error.message}`);
-          } else {
-            // Process data based on admin status
-            const exams = isAdmin
-              ? data || [] // Admin gets direct array
-              : data // Non-admin gets array of objects { exams: { ... } }
-              ? data.map((item) => item.exams).filter(Boolean) // Extract nested exam data and filter nulls
-              : [];
-            setUserExams(exams);
-            setFetchError(null);
+            setFetchError(`Error loading exams: ${examError.message}`);
+            setIsFetchingExams(false); // Stop loading on error
+            initialLoadComplete.current = true;
+            return; // Stop if exams fail to load
+          }
+
+          const exams = isAdmin
+            ? examData || []
+            : examData
+            ? examData.map((item) => item.exams).filter(Boolean)
+            : [];
+          setUserExams(exams);
+
+          // 2. Fetch Results in Bulk (Optimized)
+          //    Only fetch results if user is not admin and exams were loaded.
+          //    (Admins don't have personal results in this context)
+          if (exams.length > 0) {
+            const examIds = exams.map((exam) => exam.exam_id);
+
+            const { data: resultsData, error: resultsError } = await supabase
+              .from("exam_results")
+              .select("exam_id, user_answers, current_progress") // Select needed fields
+              .eq("user_id", user.id) // Filter by current user
+              .in("exam_id", examIds); // Filter by accessible exam IDs
+
+            if (resultsError) {
+              console.error("Supabase results fetch error:", resultsError);
+              // Decide if this is critical. Maybe just log and continue without results?
+              // For now, we'll log the error but not set the main fetchError
+              // setFetchError(`Error loading exam results: ${resultsError.message}`);
+            } else if (resultsData) {
+              // Map results data into the state object { exam_id: result }
+              const resultsMap = resultsData.reduce((acc, result) => {
+                acc[result.exam_id] = result;
+                return acc;
+              }, {});
+              setUserExamResults(resultsMap);
+            }
           }
         } catch (error) {
           console.error("Error fetching or processing exams:", error);
@@ -102,12 +132,13 @@ const ExamsPage = () => {
         }
       };
 
-      fetchExamsData();
+      fetchExamsAndResults(); // *** CORRECT FUNCTION CALL ***
     } else if (!authLoading && !user) {
       // If logged out, clear state
       // console.log("[Fetch Effect] No user, resetting state.");
       setIsFetchingExams(false); // Ensure loading stops
       setUserExams([]);
+      setUserExamResults({}); // Clear results
       setFetchError(null);
       initialLoadComplete.current = true; // Mark load complete even if no user
     }
@@ -115,16 +146,12 @@ const ExamsPage = () => {
     else if (authLoading || (user && typeof isAdmin !== "boolean")) {
       setIsFetchingExams(true); // Stay in loading state
     }
-  }, [user, authLoading, isAdmin]); // Dependencies
+    // Removed fetchLatestResult from dependencies
+  }, [user, authLoading, isAdmin]);
 
   // --- Loading State ---
-  // Show loading if auth is loading OR initial fetch hasn't completed AND
-  // (either fetch is in progress OR user exists but admin status isn't resolved yet)
-  if (
-    authLoading ||
-    (!initialLoadComplete.current &&
-      (isFetchingExams || (user && typeof isAdmin !== "boolean")))
-  ) {
+  // Show loading if auth is loading OR initial fetch (exams + results) hasn't completed
+  if (authLoading || !initialLoadComplete.current) {
     return (
       <Layout>
         <p>Đang tải dữ liệu người dùng...</p>
@@ -370,6 +397,14 @@ const ExamsPage = () => {
                 >
                   Số câu hỏi
                 </th>
+                {/* --- NEW PROGRESS COLUMN --- */}
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Tiến độ
+                </th>
+                {/* --- END NEW COLUMN --- */}
                 <th
                   scope="col"
                   className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -379,36 +414,79 @@ const ExamsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentExams.map(
-                (exam) =>
-                  exam ? ( // Extra check for safety
-                    <tr key={exam.exam_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {exam.exam_name || "Không có"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {exam.section_name || "Không có"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {exam.test_category || "Không có"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {exam.total_number_questions ?? "Không có"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        {/* --- CORRECTED LINK --- */}
-                        {/* Links to the first question using the path structure generated in gatsby-node.js */}
-                        <Link
-                          to={`/exam/${exam.exam_id}/question/1/`}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
-                        >
-                          Bắt đầu
-                        </Link>
-                        {/* --- END CORRECTION --- */}
-                      </td>
-                    </tr>
-                  ) : null // Skip rendering if exam data is somehow null in the array
-              )}
+              {currentExams.map((exam) => {
+                if (!exam) return null; // Skip if exam data is missing
+
+                const result = userExamResults[exam.exam_id]; // Get result for this exam
+                let progressText = "Chưa bắt đầu";
+                let actionButtonText = "Bắt đầu";
+                let actionButtonLink = `/exam/${exam.exam_id}/question/1/`; // Default start link
+
+                if (result) {
+                  const answeredCount = result.user_answers
+                    ? Object.keys(result.user_answers).length
+                    : 0;
+                  const totalQuestions = exam.total_number_questions;
+                  if (totalQuestions > 0) {
+                    const percentage = Math.round(
+                      (answeredCount / totalQuestions) * 100
+                    );
+                    progressText = `${answeredCount}/${totalQuestions} (${percentage}%)`;
+                  } else {
+                    progressText = `${answeredCount}/? (?%)`; // Handle case where total questions might be missing
+                  }
+
+                  // Update action button if progress exists
+                  actionButtonText = "Tiếp tục";
+                  // Link to the question *after* the last answered one
+                  const nextQuestionOrder = result.current_progress
+                    ? result.current_progress + 1
+                    : 1; // Default to 1 if progress is 0 or null
+                  // Ensure next question doesn't exceed total
+                  const finalNextOrder = Math.min(
+                    nextQuestionOrder,
+                    totalQuestions || nextQuestionOrder // Use total if available, else cap at next calculated
+                  );
+                  actionButtonLink = `/exam/${exam.exam_id}/question/${finalNextOrder}/`;
+                }
+
+                return (
+                  <tr key={exam.exam_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {exam.exam_name || "Không có"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {exam.section_name || "Không có"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {exam.test_category || "Không có"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                      {exam.total_number_questions ?? "N/A"}
+                    </td>
+                    {/* --- PROGRESS CELL --- */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {progressText}
+                    </td>
+                    {/* --- END PROGRESS CELL --- */}
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                      {/* --- UPDATED ACTION BUTTON --- */}
+                      <Link
+                        to={actionButtonLink}
+                        className={clsx(
+                          "inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out",
+                          result
+                            ? "bg-green-600 hover:bg-green-700 focus:ring-green-500" // Continue button style
+                            : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500" // Start button style
+                        )}
+                      >
+                        {actionButtonText}
+                      </Link>
+                      {/* --- END UPDATED ACTION BUTTON --- */}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
