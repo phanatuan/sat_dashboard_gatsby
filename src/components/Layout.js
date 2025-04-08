@@ -130,15 +130,34 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
             SAT PEAK
           </Link>
           <nav className="flex items-center space-x-3 sm:space-x-4">
-            {" "}
-            {/* Adjusted spacing slightly */}
+            {/* Exams dropdown */}
+            <div className="relative group">
+              <button className="text-sm sm:text-base text-gray-600 hover:text-blue-700 transition-colors focus:outline-none px-2 py-1">
+                Exams
+              </button>
+              <div className="absolute left-0 top-full mt-0 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:visible group-hover:opacity-100 transition-opacity duration-200 delay-75 z-50">
+                <Link
+                  to="/exams/ssqb"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                >
+                  SSQB Exams
+                </Link>
+                <Link
+                  to="/exams/synthesis"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                >
+                  Synthesis Exams
+                </Link>
+              </div>
+            </div>
+
             {user ? (
               <>
                 {/* Conditionally render Admin link */}
-                {isAdmin && ( // Check if user role is 'admin'
+                {isAdmin && (
                   <Link
-                    to="/admin/" // Link to your admin page
-                    className="text-sm sm:text-base text-blue-600 hover:underline hidden sm:inline" // Hide on xs screens if needed, adjust as preferred
+                    to="/admin/"
+                    className="text-sm sm:text-base text-blue-600 hover:underline hidden sm:inline"
                   >
                     Admin
                   </Link>
@@ -147,56 +166,44 @@ const Layout = ({ children, maxWidth = "max-w-7xl" }) => {
                 {/* Display user avatar and name as a link */}
                 <Link
                   to="/user-profile"
-                  className="text-sm sm:text-base text-gray-600 hover:text-blue-700 transition-colors hidden sm:inline" // Removed flex items-center space-x-2
+                  className="text-sm sm:text-base text-gray-600 hover:text-blue-700 transition-colors hidden sm:inline"
                 >
-                  {/* Check for avatar_url in user_metadata */}
                   {user.user_metadata?.avatar_url ? (
                     <img
                       src={user.user_metadata.avatar_url}
                       alt="User avatar"
-                      className="w-6 h-6 rounded-full inline-block align-middle mr-2" // Use inline-block, align-middle, add margin
-                      referrerPolicy="no-referrer" // For Google avatars
+                      className="w-6 h-6 rounded-full inline-block align-middle mr-2"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
-                    // Fallback: Simple initial or placeholder icon if no avatar
                     <span className="w-6 h-6 rounded-full bg-gray-300 inline-flex items-center justify-center text-xs font-semibold text-gray-600 align-middle mr-2">
-                      {" "}
-                      {/* Use inline-flex for centering text, align-middle, add margin */}
                       {user.email?.[0]?.toUpperCase() || "?"}
                     </span>
                   )}
-                  {/* Check for full_name or name in user_metadata, fallback to email */}
                   <span className="whitespace-nowrap inline-block align-middle">
-                    {" "}
-                    {/* Use inline-block and align-middle */}
                     {user.user_metadata?.full_name ||
                       user.user_metadata?.name ||
                       user.email}
-                    {/* ({role}) Optionally add role back if needed */}
                   </span>
                 </Link>
 
-                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-1.5 text-sm sm:text-base rounded bg-red-500 text-white hover:bg-red-600 transition duration-150 whitespace-nowrap" // Added whitespace-nowrap
+                  className="px-3 py-1.5 text-sm sm:text-base rounded bg-red-500 text-white hover:bg-red-600 transition duration-150 whitespace-nowrap"
                 >
                   Logout
                 </button>
               </>
             ) : (
               <>
-                {/* Replace Login link with Google Sign-In Button */}
-                {googleClientId ? ( // Only show button if Client ID is configured
+                {googleClientId ? (
                   <div className="w-auto">
-                    {" "}
-                    {/* Container to manage button width if needed */}
                     <GoogleSignInButton
                       onClick={() =>
                         signInWithProvider({
                           provider: "google",
                           options: {
-                            redirectTo: window.location.origin, // Redirect back to current origin
+                            redirectTo: window.location.origin,
                           },
                         })
                       }
